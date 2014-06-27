@@ -1,0 +1,37 @@
+{
+  "manifest_version": 2,
+
+  "name": "Amazon Wishlist Tracker",
+  "description": "Tracks price changes for items in matching Amazon Wishlists.",
+  "version": "1.0",
+  "icons" : {
+    "16" : "awt_icon.png",
+    "48" : "awt_icon.png",
+    "128" : "awt_icon.png"
+  },
+
+  "permissions": [
+    "http://*.amazon.com/gp/registry/wishlist/*",
+    "https://script.google.com/macros/s/AKfycbxDPJL7tD8d0N-lJ4qiP-6MWKhTQsbAzdubNUBSZh8IGBu4_FA/exec",
+    "alarms",
+    "notifications",
+    "storage",
+    "tabs"
+  ],
+  "browser_action": {
+    "default_icon": "awt_icon.png"
+  },
+  "background": {
+    "scripts": ["jquery-2.1.1.min.js", "awt-helper.js", "notify.js"],
+    "persistent": false
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://www.amazon.com/*"],
+      "js": ["awt-interface.js"]
+    }
+  ],
+  "web_accessible_resources": [
+    "awt_icon.png"
+  ]
+}
