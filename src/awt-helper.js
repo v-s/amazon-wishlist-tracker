@@ -1,7 +1,9 @@
 "use strict";
 var BADGE_DEFAULT_BG_COLOR = '#ff0000'
+var DAILY_DEALS_URL = 'http://www.amazon.com/gp/feature.html?docId=1000677541&pldnSite=1'
 var WISHLISTS_HOME_URL = 'http://smile.amazon.com/gp/registry/wishlist'
 var ANALYZE_WISHLIST_ALARM_NAME='fetch-analyze-wishlists'
+var ANALYZE_DAILY_DEAL_ALARM_NAME='fetch-analyze-dailydeals'
 var CHROME_XTN_URL_PREFIX = 'chrome-extension://' + chrome.runtime.id
 var WISHLIST_PAGINATION_SIZE = 25
 var PRICE_BUY_THRESHOLD = 2.1
@@ -30,13 +32,29 @@ chrome.runtime.onInstalled.addListener(function(details) {
     when: Date.now() + 500,
     periodInMinutes: 240
   })
+
+  chrome.alarms.create(ANALYZE_DAILY_DEAL_ALARM_NAME, {
+    when: Date.now() + 500,
+    periodInMinutes: 0.5
+  })
 })
 
 chrome.alarms.onAlarm.addListener(function(alarm) {
   if (alarm.name == ANALYZE_WISHLIST_ALARM_NAME) {
-    fetchAndAnalyzeWishLists()
+    alert('fetchAndAnalyzeWishLists()')
+  } else if (alarm.name == ANALYZE_DAILY_DEAL_ALARM_NAME) {
+    fetchAndAnalyzeDailyDeals()
   }
 })
+
+function fetchAndAnalyzeDailyDeals() {
+  $.get(DAILY_DEALS_URL)
+  .done(function(response) {
+  })
+  .fail(function() {
+    notify('Uh Oh!', 'Unable to fetch Daily Deals : ' + chrome.runtime.lastError)
+  })  
+}
 
 function fetchAndAnalyzeWishLists() {
   var now = new Date()
