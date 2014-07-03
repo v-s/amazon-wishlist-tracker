@@ -137,7 +137,7 @@ function analyzeWishLists(wishLists, wishListsTotalSize) {
               imageUrl: jqThis.find('div[id^=itemImage_' + itemWishListID + '] img')[0].src
             };
 
-            var savedItem = $.extend({price : 999999}, savedItems[itemWishListID]);
+            var savedItem = $.extend({price : 999999}, savedItems[itemASIN]);
             var itemPrice = jqThis.find('div.price-section > span.a-color-price').text().trim();
             if (!itemPrice) {
               addItemToAllItems(allItems, item, numItemsToProcess);
