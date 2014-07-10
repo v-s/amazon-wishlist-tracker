@@ -31,7 +31,7 @@
       "js": ["awt-interface-smile.js"]
     },
     {
-      "matches": ["http://smile.amazon.com/gp/product/*", "http://smile.amazon.com/*/dp/*"],
+      "matches": ["http://smile.amazon.com/gp/product/*", "http://smile.amazon.com/dp/*", "http://smile.amazon.com/*/dp/*"],
       "js": ["jquery-2.1.1.min.js", "awt-interface-tweaks.js"]
     }
   ],

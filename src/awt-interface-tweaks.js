@@ -20,7 +20,7 @@ $(function() {
   }
 
   function highlightIfProductInWishList() {
-    var productID = $('[name="ASIN.0"]').val()
+    var productID = $('[name^="ASIN"]').val()
     if (productID) {
       chrome.runtime.sendMessage({operation: 'checkIfInWishList', productID: productID});
     }
