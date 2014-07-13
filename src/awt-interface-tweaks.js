@@ -8,7 +8,7 @@ $(function() {
   function registerListeners() {
     chrome.runtime.onMessage.addListener(function(request) {
       if (request.operation == 'checkIfInWishList' && request.wishList) {
-        $('#btAsinTitle').prepend('<b style="background-color: green; color: white;">' + request.wishList + '</b> ');
+        $('#btAsinTitle, #productTitle').prepend('<b style="background-color: green; color: white;">&nbsp;' + request.wishList + '&nbsp;</b> ');
       }
     });
   }
