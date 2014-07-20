@@ -46,7 +46,7 @@ chrome.alarms.onAlarm.addListener(function(alarm) {
 });
 
 chrome.runtime.onMessage.addListener(function(request, sender) {
-  if (request.operation == 'checkIfInWishList') {
+  if (request.operation === 'checkIfInWishList') {
     var productID = request.productID;
     chrome.storage.sync.get(productID, function(data) {
       if (data[productID]) {

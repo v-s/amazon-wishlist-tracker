@@ -13,6 +13,7 @@
   "permissions": [
     "http://*.amazon.com/gp/registry/wishlist/*",
     "https://script.google.com/macros/s/AKfycbxDPJL7tD8d0N-lJ4qiP-6MWKhTQsbAzdubNUBSZh8IGBu4_FA/exec",
+    "https://www.goodreads.com/*",
     "alarms",
     "notifications",
     "storage",
