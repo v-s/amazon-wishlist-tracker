@@ -2,18 +2,20 @@ $(function() {
 
   registerListeners();
   
+  var productID = $('[name^="ASIN"]').val();
+
   var kindleNameRegexMatch = isKindleProductPage();
   if (kindleNameRegexMatch) {
-    showGoodreadsRating(kindleNameRegexMatch[1]);
+    showGoodreadsRating(kindleNameRegexMatch[1], productID);
     hideKindleNags();
   }
 
-  highlightIfProductInWishList();
+  highlightIfProductInWishList(productID);
 
   // Internal functions
   function registerListeners() {
     chrome.runtime.onMessage.addListener(function(request) {
-      if (request.operation == 'checkIfInWishList' && request.wishList) {
+      if (request.operation === 'checkIfInWishList' && request.wishList) {
         $('#btAsinTitle, #productTitle').prepend('<b style="background-color: green; color: white;">&nbsp;' + request.wishList + '&nbsp;</b> ');
       }
     });
@@ -23,30 +25,49 @@ $(function() {
     return $('#btAsinTitle, #productTitle').text().match(/^([^\[]+)\[Kindle Edition\]$/);
   }
 
-  function showGoodreadsRating(bookName) {
-    var isbnID = $('#paperback_meta_binding_winner>tr').attr('id');
-    if (isbnID) {
-      $.getJSON('https://www.goodreads.com/book/review_counts.json', {
-        key: 'dqVlK3OyDT5HWC0j5HOVtA',
-        isbns: isbnID.split('_')[1]
-      }).done(function(reviewStats) {
-        var goodreadsUrl;
-        var goodreadsRating;
-        var goodreadsRatingCount;
-        if (reviewStats) {
-          reviewStats = reviewStats.books[0];
-          goodreadsUrl = 'https://www.goodreads.com/book/show/' + reviewStats.id;
-          goodreadsRating = reviewStats.average_rating;
-          goodreadsRatingCount = ' (' + reviewStats.work_ratings_count + ' ratings)';
-        } else {
-          goodreadsUrl = 'https://www.goodreads.com/search?query=' + bookName;
-          goodreadsRating = 'Unavailable';
-          goodreadsRatingCount = '';
-        }
+  function showGoodreadsRating(bookName, productID) {
+    $.ajax({
+      url: 'https://www.goodreads.com/search.xml',
+      data: {
+        key: 'dqVlK3OyDT5HWC0j5HOVtA',  
+        q: productID
+      },
+      dataType: 'xml'
+    })
+    .done(function(xml) {
+      var jqXml = $(xml);
+      if (parseInt(jqXml.find('total-results').text()) === 1) {
+        _addGoodreadsRatingInfoToPage(bookName, jqXml.find('best_book>id').text(), jqXml.find('average_rating').text(), jqXml.find('ratings_count').text());
+      } else {
+        _addGoodreadsRatingInfoToPage(bookName);
+      }
+    })
+    .fail(function() {
+      _addGoodreadsRatingInfoToPage(bookName);
+    });
+  }
 
-        jQuery("div.buying span.asinReviewsSummary").parent()
-          .prepend('<a href=' + goodreadsUrl + ' target=_blank><b>Goodreads</b></a>: <b style=color:brown>' + goodreadsRating + '</b>' + goodreadsRatingCount + ' | Amazon ');
-      });
+  function _addGoodreadsRatingInfoToPage(bookName, goodreadsId, avgRating, ratingsCount) {
+    if (goodreadsId) {
+      goodreadsUrl = 'https://www.goodreads.com/book/show/' + goodreadsId;
+      // Pretty print. Insert commas appropriately and wrap in ().
+      ratingsCount = ' (' + ratingsCount.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' ratings)';
+      infoColor = 'brown';
+    } else {
+      goodreadsUrl = 'https://www.goodreads.com/search?query=' + bookName;
+      avgRating = 'Unavailable';
+      ratingsCount = '';
+      infoColor = 'red';
+    }
+
+    var goodreadsRatingEltHtml = '<a href=' + goodreadsUrl + ' target=_blank><b>Goodreads</b></a>: <b style=color:' + infoColor + '>' + avgRating + '</b>' + 
+      ratingsCount + ' | Amazon ';
+
+    var amazonRatingElt = $('div.buying span.asinReviewsSummary').closest('div')
+    if (amazonRatingElt.length === 1) {
+      amazonRatingElt.prepend(goodreadsRatingEltHtml);
+    } else {
+      $('<div class="buying">' + goodreadsRatingEltHtml + '</div>').insertAfter($('div.buying h1.parseasinTitle').closest('div'));
     }
   }
 
@@ -63,7 +84,7 @@ $(function() {
   }
 
   function highlightIfProductInWishList() {
-    var productID = $('[name^="ASIN"]').val()
+    
     if (productID) {
       chrome.runtime.sendMessage({operation: 'checkIfInWishList', productID: productID});
     }
