@@ -267,7 +267,7 @@ function notifyAboutItemsWithUpdates(allItems, itemsWithUpdates) {
     });
 
     if (promisingUpdates.length > 0) {
-      notify('Promising Updates', promisingUpdates.join('\n------------------------------------------------------------\n'));
+      notify('Promising Updates', promisingUpdates.join('\n----------------------------------------------\n'));
     }
   }
 
