@@ -46,13 +46,19 @@ chrome.alarms.onAlarm.addListener(function(alarm) {
 });
 
 chrome.runtime.onMessage.addListener(function(request, sender) {
-  if (request.operation === 'checkIfInWishList') {
+  var requestedOperation = request.operation
+  if (requestedOperation === 'checkIfInWishList') {
     var productID = request.productID;
     chrome.storage.sync.get(productID, function(data) {
       if (data[productID]) {
-        chrome.tabs.sendMessage(sender.tab.id, {operation: request.operation, wishList: data[productID].wl});
+        chrome.tabs.sendMessage(sender.tab.id, {
+          operation: 'highlightWishListMembership',
+          wishList: data[productID].wl
+        });
       }
     });
+  } else if (requestedOperation === 'fetchGoodreadsRating') {
+    fetchGoodreadsRating(request.productID, request.bookName, sender.tab.id);
   }
 });
 
@@ -317,4 +323,44 @@ function updateBadgeText(text, bgColor) {
   }
 
   chrome.browserAction.setBadgeText({'text' : text});
+}
+
+function fetchGoodreadsRating(productID, bookName, requesterID) {
+  $.ajax({
+    url: 'https://www.goodreads.com/search.xml',
+    data: {
+      key: 'dqVlK3OyDT5HWC0j5HOVtA',
+      q: productID
+    },
+    dataType: 'xml'
+  })
+  .done(function(xml) {
+    var response = {};
+
+    var jqXml = $(xml);
+    if (parseInt(jqXml.find('total-results').text()) === 1) {
+      response.goodreadsID = jqXml.find('best_book>id').text();
+      response.averageRating = jqXml.find('average_rating').text();
+      response.ratingsCount = jqXml.find('ratings_count').text();
+    } else {
+      response.unavailable = true;
+    }
+
+    chrome.tabs.sendMessage(requesterID, {
+      operation: 'displayGoodreadsRating',
+      bookName: bookName,
+      productID: productID,
+      ratingDetails: response
+    });
+  })
+  .fail(function(jqXHR, textStatus, errorThrown ) {
+    chrome.tabs.sendMessage(requesterID, {
+      operation: 'displayGoodreadsRating',
+      bookName: bookName,
+      productID: productID,
+      ratingDetails: {
+        failed: true
+      }
+    });
+  });
 }

@@ -15,8 +15,13 @@ $(function() {
   // Internal functions
   function registerListeners() {
     chrome.runtime.onMessage.addListener(function(request) {
-      if (request.operation === 'checkIfInWishList' && request.wishList) {
-        $('#btAsinTitle, #productTitle').prepend('<b style="background-color: green; color: white;">&nbsp;' + request.wishList + '&nbsp;</b> ');
+      var requestedOperation = request.operation;
+      if (requestedOperation === 'highlightWishListMembership') {
+        if (request.wishList) {
+          $('#btAsinTitle, #productTitle').prepend('<b style="background-color: green; color: white;">&nbsp;' + request.wishList + '&nbsp;</b> ');
+        }
+      } else if(requestedOperation === 'displayGoodreadsRating') {
+        _addGoodreadsRatingInfoToPage(request);
       }
     });
   }
@@ -26,38 +31,30 @@ $(function() {
   }
 
   function showGoodreadsRating(bookName, productID) {
-    $.ajax({
-      url: 'https://www.goodreads.com/search.xml',
-      data: {
-        key: 'dqVlK3OyDT5HWC0j5HOVtA',  
-        q: productID
-      },
-      dataType: 'xml'
-    })
-    .done(function(xml) {
-      var jqXml = $(xml);
-      if (parseInt(jqXml.find('total-results').text()) === 1) {
-        _addGoodreadsRatingInfoToPage(bookName, jqXml.find('best_book>id').text(), jqXml.find('average_rating').text(), jqXml.find('ratings_count').text());
-      } else {
-        _addGoodreadsRatingInfoToPage(bookName);
-      }
-    })
-    .fail(function() {
-      _addGoodreadsRatingInfoToPage(bookName);
-    });
+    if (productID && bookName) {
+      chrome.runtime.sendMessage({
+        operation: 'fetchGoodreadsRating',
+        productID: productID,
+        bookName: bookName
+      });
+    }
   }
 
-  function _addGoodreadsRatingInfoToPage(bookName, goodreadsId, avgRating, ratingsCount) {
-    if (goodreadsId) {
-      goodreadsUrl = 'https://www.goodreads.com/book/show/' + goodreadsId;
-      // Pretty print. Insert commas appropriately and wrap in ().
-      ratingsCount = ' (' + ratingsCount.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' ratings)';
-      infoColor = 'brown';
-    } else {
-      goodreadsUrl = 'https://www.goodreads.com/search?query=' + bookName;
-      avgRating = 'Unavailable';
+  function _addGoodreadsRatingInfoToPage(request) {
+    var ratingDetails = request.ratingDetails;
+    var avgRating, goodreadsUrl, infoColor, ratingsCount;
+
+    if (ratingDetails.failed || ratingDetails.unavailable) {
+      goodreadsUrl = 'https://www.goodreads.com/search?query=' + request.bookName;
+      avgRating = ratingDetails.failed ? 'Error' : 'Unavailable';
       ratingsCount = '';
       infoColor = 'red';
+    } else {
+      goodreadsUrl = 'https://www.goodreads.com/book/show/' + ratingDetails.goodreadsID;
+      avgRating = ratingDetails.averageRating;
+      // Pretty print. Insert commas appropriately and wrap in ().
+      ratingsCount = ' (' + ratingDetails.ratingsCount.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' ratings)';
+      infoColor = 'brown';
     }
 
     var goodreadsRatingEltHtml = '<a href=' + goodreadsUrl + ' target=_blank><b>Goodreads</b></a>: <b style=color:' + infoColor + '>' + avgRating + '</b>' + 
@@ -73,8 +70,8 @@ $(function() {
 
   function hideKindleNags() {
     $('div.kindleBanner')
-    .css('padding-bottom', '0px')
-    .css('visibility', 'hidden');
+      .css('padding-bottom', '0px')
+      .css('visibility', 'hidden');
 
     $('#audiobooks_meta_binding_winner').hide();
     $('#audiobooks_meta_binding_body').hide();
@@ -83,8 +80,7 @@ $(function() {
     $('img[alt="Kindle Unlimited"]').closest('table').hide();
   }
 
-  function highlightIfProductInWishList() {
-    
+  function highlightIfProductInWishList(productID) {
     if (productID) {
       chrome.runtime.sendMessage({operation: 'checkIfInWishList', productID: productID});
     }
