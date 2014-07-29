@@ -1,6 +1,6 @@
 "use strict";
 var BADGE_DEFAULT_BG_COLOR = '#ff0000';
-var DAILY_DEALS_URL = 'http://www.amazon.com/gp/feature.html?docId=1000677541&pldnSite=1';
+var DAILY_DEALS_URL = 'http://smile.amazon.com/gp/feature.html?docId=1000677541';
 var WISHLISTS_HOME_URL = 'http://smile.amazon.com/gp/registry/wishlist';
 var ANALYZE_WISHLIST_ALARM_NAME='fetch-analyze-wishlists';
 var ANALYZE_DAILY_DEAL_ALARM_NAME='fetch-analyze-dailydeals';
@@ -10,17 +10,6 @@ var PRICE_BUY_THRESHOLD = 2.1;
 var PRICE_BUY_PROMISING_THRESHOLD = 4.51;
 var PRICE_DROP_PERCENT_THRESHOLD = 49;
 var PRICE_DROP_PERCENT_PROMISING_THRESHOLD = 29;
-
-chrome.browserAction.onClicked.addListener(function() {
-  updateBadgeText('');
-  chrome.tabs.query({url : WISHLISTS_HOME_URL + '/*'}, function(tabs) {
-    $.each(tabs, function(index, tab) {
-      chrome.tabs.remove(tab.id);
-    });
-
-    chrome.tabs.create({url : WISHLISTS_HOME_URL});
-  });
-});
 
 chrome.runtime.onInstalled.addListener(function(details) {
   updateBadgeText('', BADGE_DEFAULT_BG_COLOR);
@@ -59,6 +48,11 @@ chrome.runtime.onMessage.addListener(function(request, sender) {
     });
   } else if (requestedOperation === 'fetchGoodreadsRating') {
     fetchGoodreadsRating(request.productID, request.bookName, sender.tab.id);
+  } else if (requestedOperation === 'goToWishlists') {
+    updateBadgeText('');
+    closeAnyExistingAndOpenNewTab(WISHLISTS_HOME_URL);
+  } else if (requestedOperation === 'goToDailyDeals') {
+    closeAnyExistingAndOpenNewTab(DAILY_DEALS_URL);
   }
 });
 
@@ -362,5 +356,15 @@ function fetchGoodreadsRating(productID, bookName, requesterID) {
         failed: true
       }
     });
+  });
+}
+
+function closeAnyExistingAndOpenNewTab(tabUrl) {
+  chrome.tabs.query({url: tabUrl + '*'}, function(tabs) {
+    $.each(tabs, function(index, tab) {
+      chrome.tabs.remove(tab.id);
+    });
+
+    chrome.tabs.create({url : tabUrl});
   });
 }

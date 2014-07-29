@@ -20,7 +20,8 @@
     "tabs"
   ],
   "browser_action": {
-    "default_icon": "awt_icon.png"
+    "default_icon": "awt_icon.png",
+    "default_popup": "awt-popup.html"
   },
   "background": {
     "scripts": ["jquery-2.1.1.min.js", "awt-helper.js", "notify.js"],
