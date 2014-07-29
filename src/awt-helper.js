@@ -53,6 +53,8 @@ chrome.runtime.onMessage.addListener(function(request, sender) {
     closeAnyExistingAndOpenNewTab(WISHLISTS_HOME_URL);
   } else if (requestedOperation === 'goToDailyDeals') {
     closeAnyExistingAndOpenNewTab(DAILY_DEALS_URL);
+  } else if (requestedOperation === 'fetchAndAnalyzeWishLists') {
+    fetchAndAnalyzeWishLists();
   }
 });
 
