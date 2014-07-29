@@ -1,6 +1,8 @@
 $(function() {
 
   registerListeners();
+
+  preventDuplicatePurchase();
   
   var productID = $('[name^="ASIN"]').val();
 
@@ -24,6 +26,13 @@ $(function() {
         _addGoodreadsRatingInfoToPage(request);
       }
     });
+  }
+
+  function preventDuplicatePurchase() {
+    if ($('.iou_div').length > 0) {
+      $('#kicsBuyBoxForm').hide();
+      $('form[name="addToWishlist"]').hide();
+    }
   }
 
   function isKindleProductPage() {
@@ -78,6 +87,11 @@ $(function() {
     $('#audiobooks_digital_meta_binding_winner').hide();
 
     $('img[alt="Kindle Unlimited"]').closest('table').hide();
+    $('img[alt="Read for Free"]').closest('div.kicsBoxContents').hide();
+    $('div.kicsGifting').hide();
+    $('#kindle_redeem_promo_link').hide();
+    $('#kcpAppBaseBox_').closest('tr').hide();
+    $('#tafContainerDiv').closest('tr').hide();
   }
 
   function highlightIfProductInWishList(productID) {
