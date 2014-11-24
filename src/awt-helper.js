@@ -293,7 +293,7 @@ function notify(messageTitle, messageText, iconUrl, navigationUrl) {
 }
 
 function gMail(opts) {
-  var gMailUrl = 'https://script.google.com/macros/s/AKfycbxDPJL7tD8d0N-lJ4qiP-6MWKhTQsbAzdubNUBSZh8IGBu4_FA/exec';
+  var gMailUrl = 'https://script.google.com/macros/s/AKfycby_BL00QIlqIJm5SuK_MgXazQDeQfwzxwYrU9aLTykzkD6BGr4/exec';
   var params = $.extend({}, opts, {
     service : 'mailMe',
     subject : '[AWT] ' + opts.subject
