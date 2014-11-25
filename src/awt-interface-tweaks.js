@@ -2,8 +2,6 @@ $(function() {
 
   registerListeners();
 
-  preventDuplicatePurchase();
-  
   var productID = $('[name^="ASIN"]').val();
 
   var kindleNameRegexMatch = isKindleProductPage();
@@ -11,6 +9,8 @@ $(function() {
     showGoodreadsRating(kindleNameRegexMatch[1], productID);
     hideKindleNags();
   }
+
+  tweakViewingOfAlreadyPurchasedItems(productID, kindleNameRegexMatch);
 
   highlightIfProductInWishList(productID);
 
@@ -28,15 +28,18 @@ $(function() {
     });
   }
 
-  function preventDuplicatePurchase() {
-    if ($('.iou_div').length > 0) {
-      $('#kicsBuyBoxForm').hide();
-      $('form[name="addToWishlist"]').hide();
+  function tweakViewingOfAlreadyPurchasedItems(productID, kindleNameRegexMatch) {
+    var orderUpdateSection = $('#instantOrderUpdate_feature_div, .iou_div');
+    if (orderUpdateSection.length > 0) {
+      if (kindleNameRegexMatch) {
+        $('#kicsBuyBoxForm').hide();
+        $('form[name="addToWishlist"]').hide();
+      }
     }
   }
 
   function isKindleProductPage() {
-    return $('#btAsinTitle, #productTitle').text().match(/^([^\[]+)\[Kindle Edition\]$/);
+    return $('#btAsinTitle, #productTitle').text().match(/^(.+)\[Kindle Edition\]$/);
   }
 
   function showGoodreadsRating(bookName, productID) {
@@ -66,7 +69,7 @@ $(function() {
       infoColor = 'brown';
     }
 
-    var goodreadsRatingEltHtml = '<a href=' + goodreadsUrl + ' target=_blank><b>Goodreads</b></a>: <b style=color:' + infoColor + '>' + avgRating + '</b>' + 
+    var goodreadsRatingEltHtml = '<a href=' + goodreadsUrl + ' target=_blank><b>Goodreads</b></a>: <b style=color:' + infoColor + '>' + avgRating + '</b>' +
       ratingsCount + ' | Amazon ';
 
     var amazonRatingElt = $('div.buying span.asinReviewsSummary').closest('div')
@@ -92,6 +95,11 @@ $(function() {
     $('#kindle_redeem_promo_link').hide();
     $('#kcpAppBaseBox_').closest('tr').hide();
     $('#tafContainerDiv').closest('tr').hide();
+    $('#hushpupyPromoWidget').closest('tr').hide();
+    $('#about-ep-price').closest('tr').hide();
+    $('#hero-quick-promo_feature_div').closest('tr').hide();
+    $('#kcpApp-form').closest('tr').hide();
+    $('#kfs-container').hide();
   }
 
   function highlightIfProductInWishList(productID) {

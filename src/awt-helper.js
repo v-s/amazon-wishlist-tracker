@@ -13,7 +13,6 @@ var PRICE_DROP_PERCENT_PROMISING_THRESHOLD = 29;
 
 chrome.runtime.onInstalled.addListener(function(details) {
   updateBadgeText('', BADGE_DEFAULT_BG_COLOR);
-  chrome.storage.sync.clear();
 
   chrome.alarms.create(ANALYZE_WISHLIST_ALARM_NAME, {
     when: Date.now() + 500,
@@ -202,31 +201,40 @@ function addItemToAllItems(allItems, item, numItemsToProcess) {
 }
 
 function windUp(allItems, itemsWithUpdates) {
-  notifyAboutItemsWithUpdates(allItems, itemsWithUpdates);
+  try {
+    notifyAboutItemsWithUpdates(allItems, itemsWithUpdates);
+  } finally {
+    chrome.storage.sync.clear(function() {
+      if (chrome.runtime.lastError) {
+        notify('Warning!', 'Unable to clear old items from storage: "' + chrome.runtime.lastError + '".')
+      }
 
-  chrome.storage.sync.set(allItems, function() {
-    if (chrome.runtime.lastError) {
-      var errorMessage = chrome.runtime.lastError
-      notify('Uh Oh!', 'Unable to store items: ' + errorMessage)
-      gMail({
-        subject: 'ERROR: Unable to store items',
-        message: errorMessage
-      })
-    } else {
-      chrome.storage.sync.getBytesInUse(null, function(usage) {
-        var usageInfo = Math.ceil(usage/chrome.storage.sync.QUOTA_BYTES * 100) + '% storage in use.';
-        var now = new Date();
-        chrome.browserAction.setTitle({
-          'title' : 'Last Checked at ' + now.toLocaleTimeString() + ', on ' + now.toLocaleDateString() + '\n' + usageInfo
-        });
+      chrome.storage.sync.set(allItems, function() {
+        if (chrome.runtime.lastError) {
+          var errorMessage = chrome.runtime.lastError
+          notify('Uh Oh!', 'Unable to store items: ' + errorMessage)
+          gMail({
+            subject: 'ERROR: Unable to store items',
+            message: errorMessage
+          })
+        } else {
+          chrome.storage.sync.getBytesInUse(null, function(usage) {
+            var usageInfo = Math.ceil(usage/chrome.storage.sync.QUOTA_BYTES * 100) + '% storage in use.';
+            var now = new Date();
+            chrome.browserAction.setTitle({
+              'title' : 'Last Checked at ' + now.toLocaleTimeString() + ', on ' + now.toLocaleDateString() + '\n' + usageInfo
+            });
+          });
+        }
       });
-    }
-  });
+    });
+  }
 }
 
 function notifyAboutItemsWithUpdates(allItems, itemsWithUpdates) {
   var badgeText = '';
   var numItemsWithUpdates = itemsWithUpdates.length;
+  var numItemsToBeNotified = 0;
   if (numItemsWithUpdates > 0) {
     badgeText = String(numItemsWithUpdates);
     var promisingUpdates = [];
@@ -245,6 +253,7 @@ function notifyAboutItemsWithUpdates(allItems, itemsWithUpdates) {
 
       if (item.availableAgain || item.unavailable) {
         notify(item.availableAgain ? 'Back!' : 'Gone!', itemDetails, item.imageUrl, item.url);
+        numItemsToBeNotified++;
       } else if (priceBelowThreshold || item.priceDropPercent > PRICE_DROP_PERCENT_THRESHOLD) {
         if (priceBelowThreshold) {
           itemDetailsSuffix = ' Only!';
@@ -261,6 +270,7 @@ function notifyAboutItemsWithUpdates(allItems, itemsWithUpdates) {
           subject : subject + ' ' + itemDetails,
           message : '<a href=\'' + item.url + '\'><img src=\'' + item.imageUrl + '\' /></a>'
         });
+        numItemsToBeNotified++;
       } else if (item.price < PRICE_BUY_PROMISING_THRESHOLD) {
         promisingUpdates.push(itemDetails);
       } else if (item.priceDropPercent > PRICE_DROP_PERCENT_PROMISING_THRESHOLD) {
@@ -268,9 +278,12 @@ function notifyAboutItemsWithUpdates(allItems, itemsWithUpdates) {
       }
     });
 
-    if (promisingUpdates.length > 0) {
+    var numPromisingUpdates = promisingUpdates.length;
+    if (numPromisingUpdates > 0) {
       notify('Promising Updates', promisingUpdates.join('\n----------------------------------------------\n'));
     }
+
+    badgeText = String(numItemsToBeNotified + numPromisingUpdates);
   }
 
   updateBadgeText(badgeText, '#00ff00');
