@@ -5,6 +5,9 @@ $(function() {
   var productID = $('[name^="ASIN"]').val();
 
   var kindleNameRegexMatch = isKindleProductPage();
+
+  // Disable Keepa for Kindle Products and enable for everything else.
+  chrome.runtime.sendMessage({operation: 'manageKeepa', enableExtension: !kindleNameRegexMatch});
   if (kindleNameRegexMatch) {
     showGoodreadsRating(kindleNameRegexMatch[1], productID);
     hideKindleNags();
@@ -85,21 +88,23 @@ $(function() {
       .css('padding-bottom', '0px')
       .css('visibility', 'hidden');
 
-    $('#audiobooks_meta_binding_winner').hide();
-    $('#audiobooks_meta_binding_body').hide();
-    $('#audiobooks_digital_meta_binding_winner').hide();
+    $('#audiobooks_meta_binding_winner').remove();
+    $('#audiobooks_meta_binding_body').remove();
+    $('#audiobooks_digital_meta_binding_winner').remove();
 
-    $('img[alt="Kindle Unlimited"]').closest('table').hide();
-    $('img[alt="Read for Free"]').closest('div.kicsBoxContents').hide();
-    $('div.kicsGifting').hide();
-    $('#kindle_redeem_promo_link').hide();
-    $('#kcpAppBaseBox_').closest('tr').hide();
-    $('#tafContainerDiv').closest('tr').hide();
-    $('#hushpupyPromoWidget').closest('tr').hide();
-    $('#about-ep-price').closest('tr').hide();
-    $('#hero-quick-promo_feature_div').closest('tr').hide();
-    $('#kcpApp-form').closest('tr').hide();
-    $('#kfs-container').hide();
+    $('img[alt="Kindle Unlimited"]').closest('table').remove();
+    $('img[alt="Read for Free"]').closest('div.kicsBoxContents').remove();
+    $('div.kicsGifting').remove();
+    $('#kindle_redeem_promo_link').remove();
+    $('#kcpAppBaseBox_').closest('tr').remove();
+    $('#tafContainerDiv').closest('tr').remove();
+    $('#hushpupyPromoWidget').closest('tr').remove();
+    $('#about-ep-price').closest('tr').remove();
+    $('#hero-quick-promo_feature_div').closest('tr').remove();
+    $('#kcpApp-form').closest('tr').remove();
+    $('#kfs-container').remove();
+    $('a[name=postPS]').remove();
+    $('div[id=ps-content]').insertAfter($('table.twisterMediaMatrix'));
   }
 
   function highlightIfProductInWishList(productID) {

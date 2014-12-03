@@ -35,7 +35,9 @@ chrome.alarms.onAlarm.addListener(function(alarm) {
 
 chrome.runtime.onMessage.addListener(function(request, sender) {
   var requestedOperation = request.operation
-  if (requestedOperation === 'checkIfInWishList') {
+  if (requestedOperation === 'manageKeepa') {
+    manageKeepa(request.enableExtension);
+  } else if (requestedOperation === 'checkIfInWishList') {
     var productID = request.productID;
     chrome.storage.sync.get(productID, function(data) {
       if (data[productID]) {
@@ -56,6 +58,16 @@ chrome.runtime.onMessage.addListener(function(request, sender) {
     fetchAndAnalyzeWishLists();
   }
 });
+
+function manageKeepa(enableExtension) {
+  chrome.management.getAll(function(extensionInfos) {
+    $(extensionInfos).each(function() {
+      if (this.name.match(/keepa/i)) {
+        chrome.management.setEnabled(this.id, enableExtension);
+      }
+    });
+  });
+}
 
 function fetchAndAnalyzeDailyDeals() {
   $.get(DAILY_DEALS_URL)
