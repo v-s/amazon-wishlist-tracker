@@ -45,12 +45,21 @@ $(function() {
     return $('#btAsinTitle, #productTitle').text().match(/^(.+)\[Kindle Edition\]$/);
   }
 
-  function showGoodreadsRating(bookName, productID) {
+  function showGoodreadsRating(bookName, productID, nonKindleProductID) {
     if (productID && bookName) {
+      var goodreadsRatingContainerHtmlPrefix = '<span id="awtGoodReadsRating">Fetching Goodreads Rating...';
+      var amazonRatingElt = $('div.buying span.asinReviewsSummary').closest('div')
+      if (amazonRatingElt.length === 1) {
+        amazonRatingElt.prepend(goodreadsRatingContainerHtmlPrefix + ' | Amazon </span>');
+      } else {
+        $('<div class="buying">' + goodreadsRatingContainerHtmlPrefix + '</span></div>').insertAfter($('div.buying h1.parseasinTitle').closest('div'));
+      }
+
       chrome.runtime.sendMessage({
         operation: 'fetchGoodreadsRating',
         productID: productID,
-        bookName: bookName
+        bookName: bookName,
+        nonKindleProductID: nonKindleProductID
       });
     }
   }
@@ -58,12 +67,16 @@ $(function() {
   function _addGoodreadsRatingInfoToPage(request) {
     var ratingDetails = request.ratingDetails;
     var avgRating, goodreadsUrl, infoColor, ratingsCount;
+    var isUsingNonKindleProductID = request.nonKindleProductID;
 
-    if (ratingDetails.failed || ratingDetails.unavailable) {
+    if (ratingDetails.failed || (ratingDetails.unavailable && isUsingNonKindleProductID)) {
       goodreadsUrl = 'https://www.goodreads.com/search?query=' + request.bookName;
       avgRating = ratingDetails.failed ? 'Error' : 'Unavailable';
       ratingsCount = '';
       infoColor = 'red';
+    } else if (ratingDetails.unavailable) {
+      _showGoodReadsRatingUsingNonKindleProductID(request.bookName);
+      return;
     } else {
       goodreadsUrl = 'https://www.goodreads.com/book/show/' + ratingDetails.goodreadsID;
       avgRating = ratingDetails.averageRating;
@@ -72,14 +85,36 @@ $(function() {
       infoColor = 'brown';
     }
 
-    var goodreadsRatingEltHtml = '<a href=' + goodreadsUrl + ' target=_blank><b>Goodreads</b></a>: <b style=color:' + infoColor + '>' + avgRating + '</b>' +
+    var goodReadsLinkTextSuffix = isUsingNonKindleProductID ? ' (Non Kindle)' : '';
+    var goodreadsRatingEltHtml = '<a href=' + goodreadsUrl + ' target=_blank><b>Goodreads' + goodReadsLinkTextSuffix + '</b></a>: <b style=color:' + infoColor + '>' + avgRating + '</b>' +
       ratingsCount + ' | Amazon ';
 
-    var amazonRatingElt = $('div.buying span.asinReviewsSummary').closest('div')
-    if (amazonRatingElt.length === 1) {
-      amazonRatingElt.prepend(goodreadsRatingEltHtml);
-    } else {
-      $('<div class="buying">' + goodreadsRatingEltHtml + '</div>').insertAfter($('div.buying h1.parseasinTitle').closest('div'));
+    $('span#awtGoodReadsRating').html(goodreadsRatingEltHtml);
+  }
+
+  function _showGoodReadsRatingUsingNonKindleProductID(bookName) {
+    var goodReadsRatingContainer = $('span#awtGoodReadsRating');
+    var goodReadsRatingContainerText = goodReadsRatingContainer.text();
+    goodReadsRatingContainer.text(goodReadsRatingContainerText.replace('Fetching ', 'Fetching Non Kindle '));
+
+    var nonKindleProductUrl = $('#paperback_meta_binding_winner td.tmm_bookTitle a, #hardcover_meta_binding_winner td.tmm_bookTitle a').attr('href');
+    if (nonKindleProductUrl) {
+      $.get(nonKindleProductUrl)
+      .done(function(response) {
+        var nonKindleProductID = $(response).find('[name^="ASIN"]').val();
+        if(nonKindleProductID) {
+          chrome.runtime.sendMessage({
+            operation: 'fetchGoodreadsRating',
+            bookName: bookName,
+            nonKindleProductID: nonKindleProductID
+          });
+        } else {
+          notify('Uh Oh!', 'Unable to determine Non Kindle Product ID of "' + bookName + '", for retrieving Goodreads rating');
+        }
+      })
+      .fail(function() {
+        notify('Uh Oh!', 'Unable to fetch Goodreads rating for "' + bookName + '" using Non Kindle Product URL : ' + chrome.runtime.lastError);
+      });
     }
   }
 

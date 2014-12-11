@@ -48,7 +48,7 @@ chrome.runtime.onMessage.addListener(function(request, sender) {
       }
     });
   } else if (requestedOperation === 'fetchGoodreadsRating') {
-    fetchGoodreadsRating(request.productID, request.bookName, sender.tab.id);
+    fetchGoodreadsRating(request, sender.tab.id);
   } else if (requestedOperation === 'goToWishlists') {
     updateBadgeText('');
     closeAnyExistingAndOpenNewTab(WISHLISTS_HOME_URL);
@@ -346,18 +346,22 @@ function updateBadgeText(text, bgColor) {
   chrome.browserAction.setBadgeText({'text' : text});
 }
 
-function fetchGoodreadsRating(productID, bookName, requesterID) {
+function fetchGoodreadsRating(request, requesterID) {
+  var productID = request.productID;
+  var bookName = request.bookName;
+  var productID = request.productID;
+  var nonKindleProductID = request.nonKindleProductID;
+
   $.ajax({
     url: 'https://www.goodreads.com/search.xml',
     data: {
       key: 'dqVlK3OyDT5HWC0j5HOVtA',
-      q: productID
+      q: productID ? productID : nonKindleProductID
     },
     dataType: 'xml'
   })
   .done(function(xml) {
     var response = {};
-
     var jqXml = $(xml);
     if (parseInt(jqXml.find('total-results').text()) === 1) {
       response.goodreadsID = jqXml.find('best_book>id').text();
@@ -371,6 +375,7 @@ function fetchGoodreadsRating(productID, bookName, requesterID) {
       operation: 'displayGoodreadsRating',
       bookName: bookName,
       productID: productID,
+      nonKindleProductID: nonKindleProductID,
       ratingDetails: response
     });
   })
@@ -379,6 +384,7 @@ function fetchGoodreadsRating(productID, bookName, requesterID) {
       operation: 'displayGoodreadsRating',
       bookName: bookName,
       productID: productID,
+      nonKindleProductID: nonKindleProductID,
       ratingDetails: {
         failed: true
       }
