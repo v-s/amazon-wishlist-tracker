@@ -1,4 +1,9 @@
 $(function() {
+  $('#paintGoodreadsRatings').click(function() {
+    chrome.runtime.sendMessage({operation: 'paintGoodreadsRatings'});
+    window.close();
+  });
+
   $('#wishlists').click(function() {
     chrome.runtime.sendMessage({operation: 'goToWishlists'});
   });

@@ -49,6 +49,14 @@ chrome.runtime.onMessage.addListener(function(request, sender) {
     });
   } else if (requestedOperation === 'fetchGoodreadsRating') {
     fetchGoodreadsRating(request, sender.tab.id);
+  } else if (requestedOperation === 'paintGoodreadsRatings') {
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+      if (tabs) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          operation: 'paintGoodreadsRatings'
+        });
+      }
+    });
   } else if (requestedOperation === 'goToWishlists') {
     updateBadgeText('');
     closeAnyExistingAndOpenNewTab(WISHLISTS_HOME_URL);
@@ -181,12 +189,11 @@ function analyzeWishLists(wishLists, wishListsTotalSize) {
                 item.availableAgain = true;
               }
 
-              if (item.availableAgain || item.price < savedItem.price) {
+              if (item.price < savedItem.price && item.priceDropPercent > 0) {
                 itemsWithUpdates.push(item);
               }
             } else if (savedItem.price >= 0) {
               item.unavailable = true;
-              itemsWithUpdates.push(item);
             }
 
             addItemToAllItems(allItems, item, numItemsToProcess);
@@ -263,10 +270,7 @@ function notifyAboutItemsWithUpdates(allItems, itemsWithUpdates) {
 
       var itemDetailsSuffix, subject;
 
-      if (item.availableAgain || item.unavailable) {
-        notify(item.availableAgain ? 'Back!' : 'Gone!', itemDetails, item.imageUrl, item.url);
-        numItemsToBeNotified++;
-      } else if (priceBelowThreshold || item.priceDropPercent > PRICE_DROP_PERCENT_THRESHOLD) {
+      if (priceBelowThreshold || item.priceDropPercent > PRICE_DROP_PERCENT_THRESHOLD) {
         if (priceBelowThreshold) {
           itemDetailsSuffix = ' Only!';
           subject = '*** Buy! ***';
@@ -348,47 +352,33 @@ function updateBadgeText(text, bgColor) {
 
 function fetchGoodreadsRating(request, requesterID) {
   var productID = request.productID;
-  var bookName = request.bookName;
-  var productID = request.productID;
-  var nonKindleProductID = request.nonKindleProductID;
+  var response = $.extend({}, request, {'operation': 'displayGoodreadsRating'});
 
   $.ajax({
     url: 'https://www.goodreads.com/search.xml',
     data: {
       key: 'dqVlK3OyDT5HWC0j5HOVtA',
-      q: productID ? productID : nonKindleProductID
+      q: productID ? productID : request.nonKindleProductID
     },
     dataType: 'xml'
   })
   .done(function(xml) {
-    var response = {};
+    var ratingDetails = {};
     var jqXml = $(xml);
     if (parseInt(jqXml.find('total-results').text()) === 1) {
-      response.goodreadsID = jqXml.find('best_book>id').text();
-      response.averageRating = jqXml.find('average_rating').text();
-      response.ratingsCount = jqXml.find('ratings_count').text();
+      ratingDetails.goodreadsID = jqXml.find('best_book>id').text();
+      ratingDetails.averageRating = jqXml.find('average_rating').text();
+      ratingDetails.ratingsCount = jqXml.find('ratings_count').text();
     } else {
-      response.unavailable = true;
+      ratingDetails.unavailable = true;
     }
 
-    chrome.tabs.sendMessage(requesterID, {
-      operation: 'displayGoodreadsRating',
-      bookName: bookName,
-      productID: productID,
-      nonKindleProductID: nonKindleProductID,
-      ratingDetails: response
-    });
+    response.ratingDetails = ratingDetails;
   })
   .fail(function(jqXHR, textStatus, errorThrown ) {
-    chrome.tabs.sendMessage(requesterID, {
-      operation: 'displayGoodreadsRating',
-      bookName: bookName,
-      productID: productID,
-      nonKindleProductID: nonKindleProductID,
-      ratingDetails: {
-        failed: true
-      }
-    });
+    response.ratingDetails = {failed: true};
+  }).always(function() {
+    chrome.tabs.sendMessage(requesterID, response);
   });
 }
 
