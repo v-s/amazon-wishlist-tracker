@@ -90,7 +90,6 @@ $(function() {
       avgRating = ratingDetails.averageRating;
       if (avgRating < 3.9) {
         var ratingContainerElt = goodreadsRatingElt.closest('.awtRatingContainer')
-        alert(ratingContainerElt.length)
         ratingContainerElt.css('opacity', '0.15')
           .hover(
             function() {
@@ -112,15 +111,15 @@ $(function() {
     var goodReadsLinkTextSuffix = isUsingNonKindleProductID ? ' (Non Kindle)' : '';
     var goodreadsRatingEltHtml = '<a href=' + goodreadsUrl + ' target=_blank><b>Goodreads' + goodReadsLinkTextSuffix + '</b></a>: <b style=color:' + infoColor + '>' + avgRating + '</b>' +
       ratingsCount + ' | Amazon ';
-
     goodreadsRatingElt.html(goodreadsRatingEltHtml);
   }
 
   function _showGoodReadsRatingUsingNonKindleProductID(request) {
     var bookName = request.bookName;
+    var productID = request.productID;
     var nonKindleProductUrl = $('#paperback_meta_binding_winner td.tmm_bookTitle a, #hardcover_meta_binding_winner td.tmm_bookTitle a').attr('href');
     if (nonKindleProductUrl) {
-      var goodReadsRatingContainer = $('span#awtGoodReadsRating_' + request.productID);
+      var goodReadsRatingContainer = $('span#awtGoodReadsRating_' + productID);
       var goodReadsRatingContainerText = goodReadsRatingContainer.text();
       goodReadsRatingContainer.text(goodReadsRatingContainerText.replace('Fetching ', 'Fetching Non Kindle '));
 
@@ -131,7 +130,8 @@ $(function() {
           chrome.runtime.sendMessage({
             operation: 'fetchGoodreadsRating',
             bookName: bookName,
-            nonKindleProductID: nonKindleProductID
+            nonKindleProductID: nonKindleProductID,
+            productID: productID
           });
         } else {
           notify('Uh Oh!', 'Unable to determine Non Kindle Product ID of "' + bookName + '", for retrieving Goodreads rating');
