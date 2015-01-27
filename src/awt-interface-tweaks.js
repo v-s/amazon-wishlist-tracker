@@ -2,13 +2,15 @@ $(function() {
 
   registerListeners();
 
+  document.title = document.title.replace(/^AmazonSmile: /, '');
+
   var productID = $('[name^="ASIN"]').val();
 
   var kindleNameRegexMatch = isKindleProductPage();
 
   // Disable Keepa for Kindle Products and enable for everything else.
   chrome.runtime.sendMessage({operation: 'manageKeepa', enableExtension: !kindleNameRegexMatch});
-  
+
   if (kindleNameRegexMatch) {
     var amazonRatingElt = $('div.buying span.asinReviewsSummary');
     var ratingContainerElt = $('div.buying h1.parseasinTitle').closest('div');
@@ -94,7 +96,7 @@ $(function() {
           .hover(
             function() {
               ratingContainerElt.css('opacity', '0.5')
-            }, 
+            },
             function() {
               ratingContainerElt.css('opacity', '0.15')
             }

@@ -143,7 +143,7 @@ function analyzeWishLists(wishLists, wishListsTotalSize) {
             var jqThis = $(this);
             var itemLink = jqThis.find('a[id^=itemName_' + itemWishListID + ']')[0];
             if (!itemLink) {
-              notify('Item Link Absent!', jqThis.html());
+              notify('Unable to find Item Link for "' + itemWishListID + '"!', jqThis.text());
               return;
             }
 
