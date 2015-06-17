@@ -12,9 +12,8 @@ $(function() {
   chrome.runtime.sendMessage({operation: 'manageKeepa', enableExtension: !kindleNameRegexMatch});
 
   if (kindleNameRegexMatch) {
-    var amazonRatingElt = $('div.buying span.asinReviewsSummary');
-    var ratingContainerElt = $('div.buying h1.parseasinTitle').closest('div');
-    showGoodreadsRating(kindleNameRegexMatch[1], productID, amazonRatingElt, ratingContainerElt);
+    var amazonRatingElt = $('#averageCustomerReviews');
+    showGoodreadsRating(kindleNameRegexMatch[1], productID, amazonRatingElt);
 
     hideKindleNags();
   }
@@ -50,19 +49,17 @@ $(function() {
   }
 
   function isKindleProductPage() {
-    return $('#btAsinTitle, #productTitle').text().match(/^(.+)\[Kindle Edition\]$/);
+    return $('#title').text().replace(/\n/g, "").trim().replace(/\s{2,}/g, " ").match(/^(.+)Kindle Edition$/);
   }
 
   function showGoodreadsRating(bookName, productID, amazonRatingElt, ratingContainerElt, skipNonKindleRatingFetch) {
     if (productID && bookName) {
+      ratingContainerElt = ratingContainerElt || amazonRatingElt;
       ratingContainerElt.addClass('awtRatingContainer');
       var goodreadsRatingContainerHtmlPrefix = '<span id="awtGoodReadsRating_' + productID + '">Fetching Goodreads Rating...';
-      if (amazonRatingElt.length == 0) {
-        $('<div class="buying">' + goodreadsRatingContainerHtmlPrefix + '</span></div>').insertAfter(ratingContainerElt);
-      } else {
-        amazonRatingElt.addClass('awtGoodreadified');
-        amazonRatingElt.closest('div').prepend(goodreadsRatingContainerHtmlPrefix + ' | Amazon </span>');
-      }
+      amazonRatingElt.addClass('awtGoodreadified');
+      var targetElement = (amazonRatingElt === ratingContainerElt) ? amazonRatingElt : amazonRatingElt.parent();
+      targetElement.prepend(goodreadsRatingContainerHtmlPrefix + ' | Amazon </span>');
 
       chrome.runtime.sendMessage({
         operation: 'fetchGoodreadsRating',
