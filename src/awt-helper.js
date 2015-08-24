@@ -1,5 +1,6 @@
 "use strict";
 var BADGE_DEFAULT_BG_COLOR = '#ff0000';
+var ERROR_ICON = 'error.png';
 var DAILY_DEALS_URL = 'http://smile.amazon.com/gp/feature.html?docId=1000677541';
 var WISHLISTS_HOME_URL = 'http://smile.amazon.com/gp/registry/wishlist';
 var ANALYZE_WISHLIST_ALARM_NAME='fetch-analyze-wishlists';
@@ -82,7 +83,7 @@ function fetchAndAnalyzeDailyDeals() {
   .done(function(response) {
   })
   .fail(function() {
-    notify('Uh Oh!', 'Unable to fetch Daily Deals : ' + chrome.runtime.lastError);
+    notifyError(null, 'Unable to fetch Daily Deals : ' + chrome.runtime.lastError, false);
   });
 }
 
@@ -95,7 +96,11 @@ function fetchAndAnalyzeWishLists() {
     var wishLists = [];
     var wishListsTotalSize = 0;
 
-    jqResponse.find('div.a-row a[href^=\'/gp/registry/wishlist/\'][title]:not([title^=\'*\'])').each(function() {
+    jqResponse.find('a[id^="wl-list-link"]').each(function() {
+      if (this.innerText.trim().startsWith('*')) {
+        return;
+      }
+
       var wishListId = /\/wishlist\/([^\/\?]+)/.exec(this.href)[1];
       var wishListSize = parseInt(jqResponse.find('span#regItemCount_' + wishListId).text().trim());
       wishListsTotalSize += wishListSize;
@@ -109,15 +114,14 @@ function fetchAndAnalyzeWishLists() {
       }
     });
 
-    if (wishListsTotalSize > 0) {
-      analyzeWishLists(wishLists, wishListsTotalSize);
+    if (wishListsTotalSize === 0) {
+      notifyError('0WL!', 'No WishLists found!');
     } else {
-      updateBadgeText('');
+      analyzeWishLists(wishLists, wishListsTotalSize);
     }
   })
   .fail(function() {
-    notify('Uh Oh!', 'Unable to fetch list of WishLists : ' + chrome.runtime.lastError);
-    updateBadgeText('ERROR');
+    notifyError('EWL!', 'Unable to fetch list of WishLists : ' + chrome.runtime.lastError);
   });
 }
 
@@ -143,7 +147,7 @@ function analyzeWishLists(wishLists, wishListsTotalSize) {
             var jqThis = $(this);
             var itemLink = jqThis.find('a[id^=itemName_' + itemWishListID + ']')[0];
             if (!itemLink) {
-              notify('Unable to find Item Link for "' + itemWishListID + '"!', jqThis.text());
+              notifyError(null, 'Unable to find Item Link for "' + itemWishListID + '"!', jqThis.text(), true);
               return;
             }
 
@@ -203,7 +207,7 @@ function analyzeWishLists(wishLists, wishListsTotalSize) {
           });
         })
         .fail(function() {
-          notify('Uh Oh!', 'Unable to fetch WishList \'' + wishList.title + '\' : ' + chrome.runtime.lastError);
+          notifyError(null, 'Unable to fetch WishList \'' + wishList.title + '\' : ' + chrome.runtime.lastError);
         });
       }
     });
@@ -231,11 +235,7 @@ function windUp(allItems, itemsWithUpdates) {
       chrome.storage.sync.set(allItems, function() {
         if (chrome.runtime.lastError) {
           var errorMessage = chrome.runtime.lastError
-          notify('Uh Oh!', 'Unable to store items: ' + errorMessage)
-          gMail({
-            subject: 'ERROR: Unable to store items',
-            message: errorMessage
-          })
+          notifyError('STOR', 'Unable to store items: ' + errorMessage)
         } else {
           chrome.storage.sync.getBytesInUse(null, function(usage) {
             var usageInfo = Math.ceil(usage/chrome.storage.sync.QUOTA_BYTES * 100) + '% storage in use.';
@@ -309,6 +309,19 @@ function getFormattedPriceDropNotifyInfo(item) {
   return '(↓' + item.priceDropPercent + '% from $' + item.initialPrice + ')';
 }
 
+function notifyError(badgeText, errorText, skipSendMail) {
+  if (badgeText) {
+    updateBadgeText(badgeText, BADGE_DEFAULT_BG_COLOR);
+  }
+  notify('Uh Oh!', errorText, ERROR_ICON)
+
+  if (!skipSendMail) {
+    gMail({
+      subject: 'ERROR: ' + errorText
+    })
+  }
+}
+
 function notify(messageTitle, messageText, iconUrl, navigationUrl) {
   var targetUrl = navigationUrl ? navigationUrl : WISHLISTS_HOME_URL;
 
@@ -330,7 +343,7 @@ function gMail(opts) {
 
   $.get(gMailUrl, params)
   .fail(function(jqXhr, status) {
-    notify('Uh Oh!', 'Unable to send GMail!');
+    notify('Uh Oh!', 'Unable to send GMail!', ERROR_ICON);
   });
 }
 
@@ -346,7 +359,6 @@ function updateBadgeText(text, bgColor) {
   if (bgColor) {
     updateBadgeBGColor(bgColor);
   }
-
   chrome.browserAction.setBadgeText({'text' : text});
 }
 
