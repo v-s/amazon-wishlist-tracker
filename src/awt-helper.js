@@ -1,5 +1,6 @@
 "use strict";
-var BADGE_DEFAULT_BG_COLOR = '#ff0000';
+var DEFAULT_PRICE_CHECK_FREQ_MINUTES = 30;
+var DEFAULT_BADGE_BG_COLOR = '#ff0000';
 var ERROR_ICON = 'error.png';
 var DAILY_DEALS_URL = 'http://smile.amazon.com/gp/feature.html?docId=1000677541';
 var WISHLISTS_HOME_URL = 'http://smile.amazon.com/gp/registry/wishlist';
@@ -13,11 +14,11 @@ var PRICE_DROP_PERCENT_THRESHOLD = 49;
 var PRICE_DROP_PERCENT_PROMISING_THRESHOLD = 29;
 
 chrome.runtime.onInstalled.addListener(function(details) {
-  updateBadgeText('', BADGE_DEFAULT_BG_COLOR);
+  updateBadgeText('', DEFAULT_BADGE_BG_COLOR);
 
   chrome.alarms.create(ANALYZE_WISHLIST_ALARM_NAME, {
     when: Date.now() + 500,
-    periodInMinutes: 240
+    periodInMinutes: DEFAULT_PRICE_CHECK_FREQ_MINUTES
   });
 
   /*chrome.alarms.create(ANALYZE_DAILY_DEAL_ALARM_NAME, {
@@ -311,7 +312,7 @@ function getFormattedPriceDropNotifyInfo(item) {
 
 function notifyError(badgeText, errorText, skipSendMail) {
   if (badgeText) {
-    updateBadgeText(badgeText, BADGE_DEFAULT_BG_COLOR);
+    updateBadgeText(badgeText, DEFAULT_BADGE_BG_COLOR);
   }
   notify('Uh Oh!', errorText, ERROR_ICON)
 

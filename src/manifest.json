@@ -29,11 +29,11 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://www.amazon.com/*"],
-      "js": ["awt-interface-smile.js"]
+      "matches": ["http://www.amazon.com/*", "https://www.amazon.com/*"],
+      "js": ["jquery-2.1.1.min.js", "awt-interface-smile.js"]
     },
     {
-      "matches": ["http://smile.amazon.com/*"],
+      "matches": ["http://*.amazon.com/*", "https://*.amazon.com/*"],
       "js": ["jquery-2.1.1.min.js", "awt-interface-tweaks.js"]
     }
   ],

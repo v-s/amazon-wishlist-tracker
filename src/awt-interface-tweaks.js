@@ -27,7 +27,7 @@ $(function() {
         _addGoodreadsRatingInfoToPage(request);
       } else if (requestedOperation === 'highlightWishListMembership') {
         if (request.wishList) {
-          $('#btAsinTitle, #productTitle').prepend('<b style="background-color: green; color: white;">&nbsp;' + request.wishList + 
+          $('#btAsinTitle, #productTitle, #title').first().prepend('<b style="background-color: green; color: white;">&nbsp;' + request.wishList + 
             '&nbsp;</b> ');
         }
       } else if (requestedOperation === 'paintGoodreadsRatings') {
