@@ -10,6 +10,7 @@ var CHROME_XTN_URL_PREFIX = 'chrome-extension://' + chrome.runtime.id;
 var WISHLIST_PAGINATION_SIZE = 25;
 var PRICE_BUY_THRESHOLD = 2.1;
 var PRICE_BUY_PROMISING_THRESHOLD = 4.51;
+var PRICE_DROP_TRIVIALITY_THRESHOLD = 10;
 var PRICE_DROP_PERCENT_THRESHOLD = 49;
 var PRICE_DROP_PERCENT_PROMISING_THRESHOLD = 29;
 
@@ -192,10 +193,16 @@ function analyzeWishLists(wishLists, wishListsTotalSize) {
 
               if (savedItem.price === -1) {
                 item.availableAgain = true;
-              }
-
-              if (item.price < savedItem.price && item.priceDropPercent > 0) {
                 itemsWithUpdates.push(item);
+              } else {
+                var priceDropDelta = savedItem.price - item.price;
+                var isNonTrivialDrop = (priceDropDelta > 0) && (priceDropDelta * 100 / savedItem.price >= PRICE_DROP_TRIVIALITY_THRESHOLD);
+                isNonTrivialDrop = isNonTrivialDrop && (item.priceDropPercent > 0) &&
+                  (!savedItem.priceDropPercent || item.priceDropPercent - savedItem.priceDropPercent > 1);
+                
+                if (isNonTrivialDrop) {
+                  itemsWithUpdates.push(item);
+                }
               }
             } else if (savedItem.price >= 0) {
               item.unavailable = true;
