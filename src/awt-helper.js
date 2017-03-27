@@ -13,6 +13,7 @@ var PRICE_BUY_PROMISING_THRESHOLD = 4.51;
 var PRICE_DROP_TRIVIALITY_THRESHOLD = 10;
 var PRICE_DROP_PERCENT_THRESHOLD = 49;
 var PRICE_DROP_PERCENT_PROMISING_THRESHOLD = 29;
+var HIGH_PRICED_ITEM_TRIGGER = 70;
 
 chrome.runtime.onInstalled.addListener(function(details) {
   updateBadgeText('', DEFAULT_BADGE_BG_COLOR);
@@ -119,7 +120,7 @@ function fetchAndAnalyzeWishLists() {
           var jqResponse = $(response);
           var wishListName = jqResponse.find("#profile-list-name").text().trim();
           console.log("> Processing WishList: " + wishListName);
-          var wishListSize = parseInt(jqResponse.find("#viewItemCount").text() || 0);
+          var wishListSize = parseInt(jqResponse.find("#viewItemCount").val() || 0);
           if (wishListSize == 0) {
             console.log("WishList is empty");
             delete wishLists[wishListName];
@@ -297,6 +298,7 @@ function notifyAboutItemsWithUpdates(allItems, itemsWithUpdates) {
     var promisingUpdates = [];
 
     $(itemsWithUpdates).each(function(idx, item) {
+      var priceDropPercentPromisingThreshold = PRICE_DROP_PERCENT_PROMISING_THRESHOLD;
       var priceBelowThreshold = (item.price < PRICE_BUY_THRESHOLD);
       var itemDetails = item.title.substring(0, 27);
       if (itemDetails !== item.title) {
@@ -304,6 +306,10 @@ function notifyAboutItemsWithUpdates(allItems, itemsWithUpdates) {
       }
       if (item.price > 0) {
         itemDetails += '\n$' + item.price;
+
+        if (item.price >= HIGH_PRICED_ITEM_TRIGGER) {
+          priceDropPercentPromisingThreshold = 14;
+        }
       }
 
       var itemDetailsSuffix, subject;
@@ -327,7 +333,7 @@ function notifyAboutItemsWithUpdates(allItems, itemsWithUpdates) {
         numItemsToBeNotified++;
       } else if (item.price < PRICE_BUY_PROMISING_THRESHOLD) {
         promisingUpdates.push(itemDetails);
-      } else if (item.priceDropPercent > PRICE_DROP_PERCENT_PROMISING_THRESHOLD) {
+      } else if (item.priceDropPercent > priceDropPercentPromisingThreshold) {
         promisingUpdates.push(itemDetails + ' ' + getFormattedPriceDropNotifyInfo(item));
       }
     });
