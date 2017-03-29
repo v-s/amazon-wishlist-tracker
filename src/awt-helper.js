@@ -120,7 +120,12 @@ function fetchAndAnalyzeWishLists() {
           var jqResponse = $(response);
           var wishListName = jqResponse.find("#profile-list-name").text().trim();
           console.log("> Processing WishList: " + wishListName);
-          var wishListSize = parseInt(jqResponse.find("#viewItemCount").val() || 0);
+          var itemCountElt = jqResponse.find("#viewItemCount");
+          var wishListSize = parseInt(
+            itemCountElt.val() || 
+            itemCountElt.text() || 
+            0
+          );
           if (wishListSize == 0) {
             console.log("WishList is empty");
             delete wishLists[wishListName];
