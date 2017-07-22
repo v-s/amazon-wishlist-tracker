@@ -2,8 +2,9 @@
 var DEFAULT_PRICE_CHECK_FREQ_MINUTES = 30;
 var DEFAULT_BADGE_BG_COLOR = '#ff0000';
 var ERROR_ICON = 'error.png';
-var DAILY_DEALS_URL = 'http://smile.amazon.com/gp/feature.html?docId=1000677541';
-var WISHLISTS_HOME_URL = 'http://smile.amazon.com/gp/registry/wishlist';
+var BASE_URL = 'http://smile.amazon.com';
+var DAILY_DEALS_URL = BASE_URL + '/gp/feature.html?docId=1000677541';
+var WISHLISTS_HOME_URL = BASE_URL + '/gp/registry/wishlist';
 var ANALYZE_WISHLIST_ALARM_NAME='fetch-analyze-wishlists';
 var ANALYZE_DAILY_DEAL_ALARM_NAME='fetch-analyze-dailydeals';
 var CHROME_XTN_URL_PREFIX = 'chrome-extension://' + chrome.runtime.id;
@@ -14,6 +15,8 @@ var PRICE_DROP_TRIVIALITY_THRESHOLD = 10;
 var PRICE_DROP_PERCENT_THRESHOLD = 49;
 var PRICE_DROP_PERCENT_PROMISING_THRESHOLD = 29;
 var HIGH_PRICED_ITEM_TRIGGER = 70;
+var STORAGE_USE_PERCENT_CRITICAL_THRESHOLD = 90;
+var STORAGE_USE_PERCENT_WARN_THRESHOLD = 75;
 
 chrome.runtime.onInstalled.addListener(function(details) {
   updateBadgeText('', DEFAULT_BADGE_BG_COLOR);
@@ -99,11 +102,11 @@ function fetchAndAnalyzeWishLists() {
     var wishLists = {};
 
     jqResponse.find('a[id^="wl-list-link"]').each(function() {
-      var linkText = this.innerText.trim()
+      var linkText = $(this).find("[id^=wl-list-title]").text().trim()
       if (!linkText.startsWith('*')) {
         wishLists[linkText] = {
           title : linkText,
-          href : makeAmazonUrl(this.href),
+          href : unfurlChromeXtnfiedURL(this.href),
           size : -1
         };
       }
@@ -114,6 +117,8 @@ function fetchAndAnalyzeWishLists() {
       notifyError('0WL!', 'No WishLists found!');
     } else {
       updateBadgeText('WLSZ');
+      console.log("Discovered WishLists: " + wishListNames.join(", "));
+      var wishListsTotalSize = 0;
       $(wishListNames).each(function() {
         $.get(wishLists[this].href)
         .done(function(response) {
@@ -122,8 +127,8 @@ function fetchAndAnalyzeWishLists() {
           console.log("> Processing WishList: " + wishListName);
           var itemCountElt = jqResponse.find("#viewItemCount");
           var wishListSize = parseInt(
-            itemCountElt.val() || 
-            itemCountElt.text() || 
+            itemCountElt.val() ||
+            itemCountElt.text() ||
             0
           );
           if (wishListSize == 0) {
@@ -131,10 +136,10 @@ function fetchAndAnalyzeWishLists() {
             delete wishLists[wishListName];
           } else {
             wishLists[wishListName].size = wishListSize;
-            console.log("Found " + wishListSize + " item(s) in WishList");
+            console.log("Found at least " + wishListSize + " item(s) in WishList");
+            wishListsTotalSize += wishListSize;
           }
 
-          var wishListsTotalSize = 0;
           var unProcessedWishListsPresent = false;
 
           wishListNames = Object.keys(wishLists);
@@ -142,10 +147,8 @@ function fetchAndAnalyzeWishLists() {
             var currentWishListSize = wishLists[this].size;
             unProcessedWishListsPresent = (currentWishListSize === -1)
             if (unProcessedWishListsPresent) {
-              console.log("Not winding up, because of unprocessed WishList: " + this);
+              console.log("Not winding up, because of at least one unprocessed WishList: " + this);
               return false;
-            } else {
-              wishListsTotalSize += currentWishListSize;
             }
           });
 
@@ -161,113 +164,124 @@ function fetchAndAnalyzeWishLists() {
   });
 }
 
-function analyzeWishLists(wishLists, wishListsTotalSize) {
+function analyzeWishLists(wishLists) {
   console.log("WishLists to be analyzed: " + JSON.stringify(wishLists));
   updateBadgeText('ANLZ');
   chrome.storage.sync.get(null, function(data) {
     var savedItems = $.extend({}, data);
     var allItems = {};
     var itemsWithUpdates = [];
-    var numItemsToProcess = wishListsTotalSize;
+    var numWishListsToProcess = wishLists.length;
+    updateBadgeText(String(numWishListsToProcess));
+    var processedWishListsTrackingInfo = {
+      'numWishListsToProcess': numWishListsToProcess
+    }
 
     $(wishLists).each(function(index, wishList) {
-      var wishListPages = Math.ceil(wishList.size / WISHLIST_PAGINATION_SIZE);
-
-      for (var wishListPageIndex = 1; wishListPageIndex <= wishListPages; wishListPageIndex++) {
-        $.get(wishList.href, {'page': wishListPageIndex})
-        .done(function(response) {
-          var jqResponse = $(response);
-          var wishListName = jqResponse.find('#profile-list-name').html()
-          jqResponse.find('div[id^=item_]').each(function() {
-            numItemsToProcess--;
-
-            var itemWishListID = this.id.split('_')[1];
-            var jqThis = $(this);
-            var itemLink = jqThis.find('a[id^=itemName_' + itemWishListID + ']')[0];
-            if (!itemLink) {
-              notifyError(null, 'Unable to find Item Link for "' + itemWishListID + '"!', jqThis.text(), true);
-              return;
-            }
-
-            var itemLinkHref = itemLink.href
-            var itemASIN = itemLinkHref.match(/\/dp\/([^\/]+)/)[1]
-            var item = {
-              price: -1,
-              id: itemASIN,
-              wl: wishListName,
-              title: itemLink.title,
-              url: makeAmazonUrl(itemLinkHref),
-              imageUrl: jqThis.find('div[id^=itemImage_' + itemWishListID + '] img')[0].src
-            };
-
-            var savedItem = $.extend({price : 999999}, savedItems[itemASIN]);
-            var itemPrice = jqThis.find('div.price-section > span.a-color-price').text().trim();
-            if (!itemPrice) {
-              addItemToAllItems(allItems, item, numItemsToProcess);
-              if (numItemsToProcess === 0) {
-                windUp(allItems, itemsWithUpdates);
-              }
-
-              return;
-            }
-
-            var itemAvailable = (itemPrice.toLowerCase() != 'unavailable');
-            if (itemAvailable) {
-              item.price = parseFloat(itemPrice.substring(1));
-              item.initialPrice = item.price;
-              item.priceDropPercent = 0;
-
-              var priceUpdateSection = jqThis.find('div.a-row > span.a-text-bold:contains(\'Price dropped\')');
-              if(priceUpdateSection.length == 1) {
-                var priceDropText = priceUpdateSection[0].parentNode.innerText;
-                var priceAndPercentRegexMatch = /(\d+)%[^$]+\$(\d+\.\d{2})/.exec(priceDropText);
-                if (priceAndPercentRegexMatch) {
-                  item.priceDropPercent = parseInt(priceAndPercentRegexMatch[1]);
-                  item.initialPrice = parseFloat(priceAndPercentRegexMatch[2]);
-                }
-              }
-
-              if (savedItem.price === -1) {
-                item.availableAgain = true;
-                itemsWithUpdates.push(item);
-              } else {
-                var priceDropDelta = savedItem.price - item.price;
-                var isNonTrivialDrop = (priceDropDelta > 0) && (priceDropDelta * 100 / savedItem.price >= PRICE_DROP_TRIVIALITY_THRESHOLD);
-                isNonTrivialDrop = isNonTrivialDrop && (item.priceDropPercent > 0) &&
-                  (!savedItem.priceDropPercent || item.priceDropPercent - savedItem.priceDropPercent > 1);
-
-                if (isNonTrivialDrop) {
-                  itemsWithUpdates.push(item);
-                }
-              }
-            } else if (savedItem.price >= 0) {
-              item.unavailable = true;
-            }
-
-            addItemToAllItems(allItems, item, numItemsToProcess);
-            if (numItemsToProcess === 0) {
-              windUp(allItems, itemsWithUpdates);
-            }
-          });
-        })
-        .fail(function() {
-          notifyError(null, 'Unable to fetch WishList \'' + wishList.title + '\' : ' + chrome.runtime.lastError);
-        });
-      }
+      analyzeWishListPage(wishList.href, processedWishListsTrackingInfo, savedItems, allItems, itemsWithUpdates);
     });
   });
 }
 
-function addItemToAllItems(allItems, item, numItemsToProcess) {
+function analyzeWishListPage(pageURL, processedWishListsTrackingInfo, savedItems, allItems, itemsWithUpdates) {
+  $.get(pageURL)
+  .done(function(response) {
+    var jqResponse = $(response);
+    var wishListName = jqResponse.find('#profile-list-name').html()
+    jqResponse.find('div[id^=item_]').each(function() {
+      var itemWishListID = this.id.split('_')[1];
+      var jqThis = $(this);
+      var itemLink = jqThis.find('a[id^=itemName_' + itemWishListID + ']')[0];
+      if (!itemLink) {
+        notifyError(null, 'Unable to find Item Link for "' + itemWishListID + '"!', jqThis.text(), true);
+        return;
+      }
+
+      var itemLinkHref = itemLink.href
+      var itemASIN = itemLinkHref.match(/\/dp\/([^\/]+)/)[1]
+      var item = {
+        price: -1,
+        id: itemASIN,
+        wl: wishListName,
+        title: itemLink.title,
+        url: unfurlChromeXtnfiedURL(itemLinkHref),
+        imageUrl: jqThis.find('div[id^=itemImage_' + itemWishListID + '] img')[0].src
+      };
+
+      var savedItem = $.extend({price : 999999}, savedItems[itemASIN]);
+      var itemPrice = jqThis.find('div.price-section > span.a-color-price').text().trim();
+      if (!itemPrice) {
+        addItemToAllItems(allItems, item);
+        return;
+      }
+
+      var itemAvailable = (itemPrice.toLowerCase() != 'unavailable');
+      if (itemAvailable) {
+        item.price = parseFloat(itemPrice.substring(1));
+        item.initialPrice = item.price;
+        item.priceDropPercent = 0;
+
+        var priceUpdateSection = jqThis.find('div.a-row > span.a-text-bold:contains(\'Price dropped\')');
+        if(priceUpdateSection.length == 1) {
+          var priceDropText = priceUpdateSection[0].parentNode.innerText;
+          var priceAndPercentRegexMatch = /(\d+)%[^$]+\$(\d+\.\d{2})/.exec(priceDropText);
+          if (priceAndPercentRegexMatch) {
+            item.priceDropPercent = parseInt(priceAndPercentRegexMatch[1]);
+            item.initialPrice = parseFloat(priceAndPercentRegexMatch[2]);
+          }
+        }
+
+        if (savedItem.price === -1) {
+          item.availableAgain = true;
+          itemsWithUpdates.push(item);
+        } else if (savedItem.price < 999999) {
+          var priceDropDelta = savedItem.price - item.price;
+          var isNonTrivialDrop = (priceDropDelta > 0) && (priceDropDelta * 100 / savedItem.price >= PRICE_DROP_TRIVIALITY_THRESHOLD);
+          isNonTrivialDrop = isNonTrivialDrop && (item.priceDropPercent > 0) &&
+            (!savedItem.priceDropPercent || item.priceDropPercent - savedItem.priceDropPercent > 1);
+
+          if (isNonTrivialDrop) {
+            itemsWithUpdates.push(item);
+          }
+        }
+      } else if (savedItem.price >= 0 && savedItem.price < 999999) {
+        item.unavailable = true;
+      }
+
+      addItemToAllItems(allItems, item);
+    });
+
+    var wishListTitleLogText = 'WishList \'' + wishListName + '\'';
+    if(jqResponse.find("input[name=lastEvaluatedKey]").val().trim()) {
+      console.log('Processing next page of ' + wishListTitleLogText);
+      var nextPageURL = unfurlChromeXtnfiedURL(jqResponse.find("input[name=showMoreUrl]").val());
+      analyzeWishListPage(nextPageURL, processedWishListsTrackingInfo, savedItems, allItems, itemsWithUpdates);
+    } else {
+      console.log('Finished processing ' + wishListTitleLogText);
+      processedWishListsTrackingInfo['numWishListsToProcess'] = processedWishListsTrackingInfo['numWishListsToProcess'] - 1;
+      updateBadgeText(String(processedWishListsTrackingInfo['numWishListsToProcess']));
+      if (processedWishListsTrackingInfo['numWishListsToProcess'] === 0) {
+        console.log('Finished processing all WishLists. Winding up...');
+        windUp(allItems, itemsWithUpdates);
+      }
+    }
+  })
+  .fail(function() {
+    notifyError(null, 'Unable to fetch page of WishList \'' + wishList.title +
+        '\' @ \'' + pageURL + '\' : ' + chrome.runtime.lastError);
+  });
+}
+
+function addItemToAllItems(allItems, item) {
   allItems[item.id] = {
     price: item.price,
-    wl: item.wl
+    title: item.title,
+    wishList: item.wl
   };
-
-  updateBadgeText(String(numItemsToProcess));
 }
 
 function windUp(allItems, itemsWithUpdates) {
+  console.log("Items with updates: " + JSON.stringify(itemsWithUpdates));
   try {
     notifyAboutItemsWithUpdates(allItems, itemsWithUpdates);
   } finally {
@@ -282,7 +296,15 @@ function windUp(allItems, itemsWithUpdates) {
           notifyError('STOR', 'Unable to store items: ' + errorMessage)
         } else {
           chrome.storage.sync.getBytesInUse(null, function(usage) {
-            var usageInfo = Math.ceil(usage/chrome.storage.sync.QUOTA_BYTES * 100) + '% storage in use.';
+            var bytesInUsePercent = Math.ceil(usage/chrome.storage.sync.QUOTA_BYTES * 100);
+            var usageInfo = bytesInUsePercent + '% storage in use.';
+            if (bytesInUsePercent >= STORAGE_USE_PERCENT_CRITICAL_THRESHOLD) {
+              gMail({
+                subject: usageInfo
+              });
+            } else if (bytesInUsePercent >= STORAGE_USE_PERCENT_WARN_THRESHOLD) {
+              notify('Warning!!!', usageInfo);
+            }
             var now = new Date();
             chrome.browserAction.setTitle({
               'title' : 'Last Checked at ' + now.toLocaleTimeString() + ', on ' + now.toLocaleDateString() + '\n' + usageInfo
@@ -396,8 +418,8 @@ function gMail(opts) {
   });
 }
 
-function makeAmazonUrl(chromeXtnfiedUrl) {
-  return 'http://smile.amazon.com' + chromeXtnfiedUrl.replace(CHROME_XTN_URL_PREFIX, '');
+function unfurlChromeXtnfiedURL(chromeXtnfiedURL) {
+  return BASE_URL + chromeXtnfiedURL.replace(CHROME_XTN_URL_PREFIX, '');
 }
 
 function updateBadgeBGColor(color) {
