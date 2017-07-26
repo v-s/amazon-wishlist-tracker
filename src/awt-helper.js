@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 var DEFAULT_PRICE_CHECK_FREQ_MINUTES = 30;
 var DEFAULT_BADGE_BG_COLOR = '#ff0000';
 var ERROR_ICON = 'error.png';
@@ -50,7 +50,7 @@ chrome.runtime.onMessage.addListener(function(request, sender) {
       if (data[productID]) {
         chrome.tabs.sendMessage(sender.tab.id, {
           operation: 'highlightWishListMembership',
-          wishList: data[productID].wl
+          wishList: data[productID].wishList
         });
       }
     });
@@ -94,7 +94,7 @@ function fetchAndAnalyzeDailyDeals() {
 }
 
 function fetchAndAnalyzeWishLists() {
-  updateBadgeText('FTCH', '#000000');
+  updateBadgeText('FTCH', '#ff7F50');
 
   $.get(WISHLISTS_HOME_URL)
   .done(function(response) {
@@ -102,7 +102,7 @@ function fetchAndAnalyzeWishLists() {
     var wishLists = {};
 
     jqResponse.find('a[id^="wl-list-link"]').each(function() {
-      var linkText = $(this).find("[id^=wl-list-title]").text().trim()
+      var linkText = $(this).find('[id^="wl-list-title"]').text().trim()
       if (!linkText.startsWith('*')) {
         wishLists[linkText] = {
           title : linkText,
@@ -117,26 +117,26 @@ function fetchAndAnalyzeWishLists() {
       notifyError('0WL!', 'No WishLists found!');
     } else {
       updateBadgeText('WLSZ');
-      console.log("Discovered WishLists: " + wishListNames.join(", "));
+      console.log('Discovered WishLists: ' + wishListNames.join(', '));
       var wishListsTotalSize = 0;
       $(wishListNames).each(function() {
         $.get(wishLists[this].href)
         .done(function(response) {
           var jqResponse = $(response);
-          var wishListName = jqResponse.find("#profile-list-name").text().trim();
-          console.log("> Processing WishList: " + wishListName);
-          var itemCountElt = jqResponse.find("#viewItemCount");
+          var wishListName = jqResponse.find('#profile-list-name').text().trim();
+          console.log('> Processing WishList: ' + wishListName);
+          var itemCountElt = jqResponse.find('#viewItemCount');
           var wishListSize = parseInt(
             itemCountElt.val() ||
             itemCountElt.text() ||
             0
           );
           if (wishListSize == 0) {
-            console.log("WishList is empty");
+            console.log('WishList is empty');
             delete wishLists[wishListName];
           } else {
             wishLists[wishListName].size = wishListSize;
-            console.log("Found at least " + wishListSize + " item(s) in WishList");
+            console.log('Found at least ' + wishListSize + ' item(s) in WishList');
             wishListsTotalSize += wishListSize;
           }
 
@@ -147,7 +147,7 @@ function fetchAndAnalyzeWishLists() {
             var currentWishListSize = wishLists[this].size;
             unProcessedWishListsPresent = (currentWishListSize === -1)
             if (unProcessedWishListsPresent) {
-              console.log("Not winding up, because of at least one unprocessed WishList: " + this);
+              console.log('Not winding up, because of at least one unprocessed WishList: ' + this);
               return false;
             }
           });
@@ -165,7 +165,7 @@ function fetchAndAnalyzeWishLists() {
 }
 
 function analyzeWishLists(wishLists) {
-  console.log("WishLists to be analyzed: " + JSON.stringify(wishLists));
+  console.log('WishLists to be analyzed: ' + JSON.stringify(wishLists));
   updateBadgeText('ANLZ');
   chrome.storage.sync.get(null, function(data) {
     var savedItems = $.extend({}, data);
@@ -193,7 +193,7 @@ function analyzeWishListPage(pageURL, processedWishListsTrackingInfo, savedItems
       var jqThis = $(this);
       var itemLink = jqThis.find('a[id^=itemName_' + itemWishListID + ']')[0];
       if (!itemLink) {
-        notifyError(null, 'Unable to find Item Link for "' + itemWishListID + '"!', jqThis.text(), true);
+        notifyError(null, 'Unable to find Item Link for \'' + itemWishListID + '\'!', jqThis.text(), true);
         return;
       }
 
@@ -252,9 +252,9 @@ function analyzeWishListPage(pageURL, processedWishListsTrackingInfo, savedItems
     });
 
     var wishListTitleLogText = 'WishList \'' + wishListName + '\'';
-    if(jqResponse.find("input[name=lastEvaluatedKey]").val().trim()) {
+    if(jqResponse.find('input[name=lastEvaluatedKey]').val().trim()) {
       console.log('Processing next page of ' + wishListTitleLogText);
-      var nextPageURL = unfurlChromeXtnfiedURL(jqResponse.find("input[name=showMoreUrl]").val());
+      var nextPageURL = unfurlChromeXtnfiedURL(jqResponse.find('input[name=showMoreUrl]').val());
       analyzeWishListPage(nextPageURL, processedWishListsTrackingInfo, savedItems, allItems, itemsWithUpdates);
     } else {
       console.log('Finished processing ' + wishListTitleLogText);
@@ -281,13 +281,13 @@ function addItemToAllItems(allItems, item) {
 }
 
 function windUp(allItems, itemsWithUpdates) {
-  console.log("Items with updates: " + JSON.stringify(itemsWithUpdates));
+  console.log('Items with updates: ' + JSON.stringify(itemsWithUpdates));
   try {
     notifyAboutItemsWithUpdates(allItems, itemsWithUpdates);
   } finally {
     chrome.storage.sync.clear(function() {
       if (chrome.runtime.lastError) {
-        notify('Warning!', 'Unable to clear old items from storage: "' + chrome.runtime.lastError + '".')
+        notify('Warning!', 'Unable to clear old items from storage: \'' + chrome.runtime.lastError + '\'.')
       }
 
       chrome.storage.sync.set(allItems, function() {
