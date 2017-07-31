@@ -26,9 +26,12 @@ $(function() {
       if(requestedOperation === 'displayGoodreadsRating') {
         _addGoodreadsRatingInfoToPage(request);
       } else if (requestedOperation === 'highlightWishListMembership') {
-        if (request.wishList) {
-          $('#btAsinTitle, #productTitle, #title').first().prepend('<b style="background-color: green; color: white;">&nbsp;' + request.wishList + 
-            '&nbsp;</b> ');
+        if (request.wishListName) {
+          var highlightElt = '<b style="background-color: green; color: white;">&nbsp;' + request.wishListName + '&nbsp;</b> ';
+          if (request.wishListURL) {
+            highlightElt = '<a target="_blank" href="' + request.wishListURL + '">' + highlightElt + '</a>';
+          }
+          $('#btAsinTitle, #productTitle, #title').first().prepend(highlightElt);
         }
       } else if (requestedOperation === 'paintGoodreadsRatings') {
         _paintGoodreadsRatings();

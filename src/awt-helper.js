@@ -6,7 +6,6 @@ var BASE_URL = 'http://smile.amazon.com';
 var DAILY_DEALS_URL = BASE_URL + '/gp/feature.html?docId=1000677541';
 var WISHLISTS_HOME_URL = BASE_URL + '/gp/registry/wishlist';
 var ANALYZE_WISHLIST_ALARM_NAME='fetch-analyze-wishlists';
-var ANALYZE_DAILY_DEAL_ALARM_NAME='fetch-analyze-dailydeals';
 var CHROME_XTN_URL_PREFIX = 'chrome-extension://' + chrome.runtime.id;
 var WISHLIST_PAGINATION_SIZE = 25;
 var PRICE_BUY_THRESHOLD = 2.1;
@@ -15,8 +14,11 @@ var PRICE_DROP_TRIVIALITY_THRESHOLD = 10;
 var PRICE_DROP_PERCENT_THRESHOLD = 49;
 var PRICE_DROP_PERCENT_PROMISING_THRESHOLD = 29;
 var HIGH_PRICED_ITEM_TRIGGER = 70;
+var STORAGE_KEY_WISHLISTS = '__wishLists';
 var STORAGE_USE_PERCENT_CRITICAL_THRESHOLD = 90;
 var STORAGE_USE_PERCENT_WARN_THRESHOLD = 75;
+
+var _wishLists;
 
 chrome.runtime.onInstalled.addListener(function(details) {
   updateBadgeText('', DEFAULT_BADGE_BG_COLOR);
@@ -25,18 +27,11 @@ chrome.runtime.onInstalled.addListener(function(details) {
     when: Date.now() + 500,
     periodInMinutes: DEFAULT_PRICE_CHECK_FREQ_MINUTES
   });
-
-  /*chrome.alarms.create(ANALYZE_DAILY_DEAL_ALARM_NAME, {
-    when: Date.now() + 500,
-    periodInMinutes: 0.5
-  });*/
 });
 
 chrome.alarms.onAlarm.addListener(function(alarm) {
   if (alarm.name == ANALYZE_WISHLIST_ALARM_NAME) {
     fetchAndAnalyzeWishLists();
-  } else if (alarm.name == ANALYZE_DAILY_DEAL_ALARM_NAME) {
-    fetchAndAnalyzeDailyDeals();
   }
 });
 
@@ -46,12 +41,18 @@ chrome.runtime.onMessage.addListener(function(request, sender) {
     manageKeepa(request.enableExtension);
   } else if (requestedOperation === 'checkIfInWishList') {
     var productID = request.productID;
-    chrome.storage.sync.get(productID, function(data) {
-      if (data[productID]) {
-        chrome.tabs.sendMessage(sender.tab.id, {
+    chrome.storage.sync.get([productID, STORAGE_KEY_WISHLISTS], function(data) {
+      if (data && data[productID]) {
+        var wishListName = data[productID].wishListName;
+        var message = {
           operation: 'highlightWishListMembership',
-          wishList: data[productID].wishList
-        });
+          wishListName: wishListName
+        }
+        if (data[STORAGE_KEY_WISHLISTS]) {
+          message['wishListURL'] = data[STORAGE_KEY_WISHLISTS][wishListName]['href'];
+        }
+        
+        chrome.tabs.sendMessage(sender.tab.id, message);
       }
     });
   } else if (requestedOperation === 'fetchGoodreadsRating') {
@@ -84,15 +85,6 @@ function manageKeepa(enableExtension) {
   });
 }
 
-function fetchAndAnalyzeDailyDeals() {
-  $.get(DAILY_DEALS_URL)
-  .done(function(response) {
-  })
-  .fail(function() {
-    notifyError(null, 'Unable to fetch Daily Deals : ' + chrome.runtime.lastError, false);
-  });
-}
-
 function fetchAndAnalyzeWishLists() {
   updateBadgeText('FTCH', '#ff7F50');
 
@@ -112,6 +104,7 @@ function fetchAndAnalyzeWishLists() {
       }
     });
 
+    _wishLists = wishLists;
     var wishListNames = Object.keys(wishLists);
     if (wishListNames.length === 0) {
       notifyError('0WL!', 'No WishLists found!');
@@ -160,7 +153,7 @@ function fetchAndAnalyzeWishLists() {
     }
   })
   .fail(function() {
-    notifyError('EWL!', 'Unable to fetch list of WishLists : ' + chrome.runtime.lastError);
+    notifyError('EWL!', 'Unable to fetch list of WishLists : ' + chrome.runtime.lastError.message);
   });
 }
 
@@ -202,7 +195,7 @@ function analyzeWishListPage(pageURL, processedWishListsTrackingInfo, savedItems
       var item = {
         price: -1,
         id: itemASIN,
-        wl: wishListName,
+        wishListName: wishListName,
         title: itemLink.title,
         url: unfurlChromeXtnfiedURL(itemLinkHref),
         imageUrl: jqThis.find('div[id^=itemImage_' + itemWishListID + '] img')[0].src
@@ -268,7 +261,7 @@ function analyzeWishListPage(pageURL, processedWishListsTrackingInfo, savedItems
   })
   .fail(function() {
     notifyError(null, 'Unable to fetch page of WishList \'' + wishList.title +
-        '\' @ \'' + pageURL + '\' : ' + chrome.runtime.lastError);
+        '\' @ \'' + pageURL + '\' : ' + chrome.runtime.lastError.message);
   });
 }
 
@@ -276,7 +269,7 @@ function addItemToAllItems(allItems, item) {
   allItems[item.id] = {
     price: item.price,
     title: item.title,
-    wishList: item.wl
+    wishListName: item.wishListName,
   };
 }
 
@@ -287,30 +280,41 @@ function windUp(allItems, itemsWithUpdates) {
   } finally {
     chrome.storage.sync.clear(function() {
       if (chrome.runtime.lastError) {
-        notify('Warning!', 'Unable to clear old items from storage: \'' + chrome.runtime.lastError + '\'.')
+        notify('Warning!', 'Unable to clear old items from storage: \'' + chrome.runtime.lastError.message + '\'.')
       }
-
-      chrome.storage.sync.set(allItems, function() {
+      
+      var wishListsStorageWrapper = {}
+      wishListsStorageWrapper[STORAGE_KEY_WISHLISTS] = _wishLists;
+      chrome.storage.sync.set(wishListsStorageWrapper, function() {
         if (chrome.runtime.lastError) {
-          var errorMessage = chrome.runtime.lastError
-          notifyError('STOR', 'Unable to store items: ' + errorMessage)
-        } else {
-          chrome.storage.sync.getBytesInUse(null, function(usage) {
-            var bytesInUsePercent = Math.ceil(usage/chrome.storage.sync.QUOTA_BYTES * 100);
-            var usageInfo = bytesInUsePercent + '% storage in use.';
-            if (bytesInUsePercent >= STORAGE_USE_PERCENT_CRITICAL_THRESHOLD) {
-              gMail({
-                subject: usageInfo
-              });
-            } else if (bytesInUsePercent >= STORAGE_USE_PERCENT_WARN_THRESHOLD) {
-              notify('Warning!!!', usageInfo);
-            }
-            var now = new Date();
-            chrome.browserAction.setTitle({
-              'title' : 'Last Checked at ' + now.toLocaleTimeString() + ', on ' + now.toLocaleDateString() + '\n' + usageInfo
-            });
-          });
+          // We need to save the WishLists only for optional enabling of hyperlinks in the 
+          // "Highlight WishList Membership" feature. Hence, no need to escalate this error.
+          console.warn('Unable to store WishLists: ' + chrome.runtime.lastError.message);
         }
+        
+        chrome.storage.sync.set(allItems, function() {
+          if (chrome.runtime.lastError) {
+            notifyError('STOR', 'Unable to store items: ' + chrome.runtime.lastError.message)
+          } else {
+            chrome.storage.sync.getBytesInUse(null, function(usage) {
+              var bytesInUsePercent = Math.ceil(usage/chrome.storage.sync.QUOTA_BYTES * 100);
+              var usageInfo = bytesInUsePercent + '% storage in use.';
+              if (bytesInUsePercent >= STORAGE_USE_PERCENT_CRITICAL_THRESHOLD) {
+                gMail({
+                  subject: usageInfo
+                });
+              } else if (bytesInUsePercent >= STORAGE_USE_PERCENT_WARN_THRESHOLD) {
+                notify('Warning!!!', usageInfo);
+              }
+              var now = new Date();
+              var wishListsInfo = Object.keys(_wishLists).length + ' Wish Lists.';
+              var itemsInfo = Object.keys(allItems).length + ' items.';
+              chrome.browserAction.setTitle({
+                'title' : 'Last Checked at ' + now.toLocaleTimeString() + ', on ' + now.toLocaleDateString() + '\n' + wishListsInfo + '\n' + itemsInfo + '\n' + usageInfo
+              });
+            });
+          }
+        });
       });
     });
   }
@@ -370,10 +374,13 @@ function notifyAboutItemsWithUpdates(allItems, itemsWithUpdates) {
       notify('Promising Updates', promisingUpdates.join('\n----------------------------------------------\n'));
     }
 
+    updateBadgeBGColor('#009900');
     badgeText = String(numItemsToBeNotified + numPromisingUpdates);
+  } else {
+    notify('AWT Run Complete!', Object.keys(allItems).length + ' items analyzed.', null, null, 3);
   }
 
-  updateBadgeText(badgeText, '#009900');
+  updateBadgeText(badgeText);
 }
 
 function getFormattedPriceDropNotifyInfo(item) {
@@ -381,6 +388,7 @@ function getFormattedPriceDropNotifyInfo(item) {
 }
 
 function notifyError(badgeText, errorText, skipSendMail) {
+  console.error(errorText);
   if (badgeText) {
     updateBadgeText(badgeText, DEFAULT_BADGE_BG_COLOR);
   }
@@ -393,13 +401,14 @@ function notifyError(badgeText, errorText, skipSendMail) {
   }
 }
 
-function notify(messageTitle, messageText, iconUrl, navigationUrl) {
+function notify(messageTitle, messageText, iconUrl, navigationUrl, timeout) {
   var targetUrl = navigationUrl ? navigationUrl : WISHLISTS_HOME_URL;
 
   var notification = new Notify(messageTitle, {
     body : messageText,
     icon : iconUrl ? iconUrl : 'awt_icon.png',
-    notifyClick : function() { chrome.tabs.create({url : targetUrl}) }
+    notifyClick : function() { chrome.tabs.create({url : targetUrl}) },
+    timeout: timeout
   });
 
   notification.show();
