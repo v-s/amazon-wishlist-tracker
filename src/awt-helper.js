@@ -51,7 +51,7 @@ chrome.runtime.onMessage.addListener(function(request, sender) {
         if (data[STORAGE_KEY_WISHLISTS]) {
           message['wishListURL'] = data[STORAGE_KEY_WISHLISTS][wishListName]['href'];
         }
-        
+
         chrome.tabs.sendMessage(sender.tab.id, message);
       }
     });
@@ -210,7 +210,7 @@ function analyzeWishListPage(pageURL, processedWishListsTrackingInfo, savedItems
 
       var itemAvailable = (itemPrice.toLowerCase() != 'unavailable');
       if (itemAvailable) {
-        item.price = parseFloat(itemPrice.substring(1));
+        item.price = parseFloat(itemPrice.replace(/[^\d\.]/g, ''));
         item.initialPrice = item.price;
         item.priceDropPercent = 0;
 
@@ -282,16 +282,16 @@ function windUp(allItems, itemsWithUpdates) {
       if (chrome.runtime.lastError) {
         notify('Warning!', 'Unable to clear old items from storage: \'' + chrome.runtime.lastError.message + '\'.')
       }
-      
+
       var wishListsStorageWrapper = {}
       wishListsStorageWrapper[STORAGE_KEY_WISHLISTS] = _wishLists;
       chrome.storage.sync.set(wishListsStorageWrapper, function() {
         if (chrome.runtime.lastError) {
-          // We need to save the WishLists only for optional enabling of hyperlinks in the 
+          // We need to save the WishLists only for optional enabling of hyperlinks in the
           // "Highlight WishList Membership" feature. Hence, no need to escalate this error.
           console.warn('Unable to store WishLists: ' + chrome.runtime.lastError.message);
         }
-        
+
         chrome.storage.sync.set(allItems, function() {
           if (chrome.runtime.lastError) {
             notifyError('STOR', 'Unable to store items: ' + chrome.runtime.lastError.message)
