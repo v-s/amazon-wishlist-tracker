@@ -116,7 +116,7 @@ function fetchAndAnalyzeWishLists() {
         $.get(wishLists[this].href)
         .done(function(response) {
           var jqResponse = $(response);
-          var wishListName = jqResponse.find('#profile-list-name').text().trim();
+          var wishListName = unescapeHTML(jqResponse.find('#profile-list-name').text().trim());
           console.log('> Processing WishList: ' + wishListName);
           var itemCountElt = jqResponse.find('#viewItemCount');
           var wishListSize = parseInt(
@@ -482,4 +482,8 @@ function closeAnyExistingAndOpenNewTab(tabUrl) {
 
     chrome.tabs.create({url : tabUrl});
   });
+}
+
+function unescapeHTML(encodedHTMLText) {
+  return $('<textarea/>').html(encodedHTMLText).text()
 }

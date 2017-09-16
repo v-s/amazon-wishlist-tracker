@@ -5,17 +5,18 @@ $(function() {
   document.title = document.title.replace(/^AmazonSmile: /, '');
 
   var productID = $('[name^="ASIN"]').val();
-  var kindleNameRegexMatch = isKindleProductPage();
+  var isKindlePage = isKindleProductPage();
 
   // Disable Keepa for Kindle Products and enable for everything else.
-  chrome.runtime.sendMessage({operation: 'manageKeepa', enableExtension: !kindleNameRegexMatch});
+  chrome.runtime.sendMessage({operation: 'manageKeepa', enableExtension: !isKindlePage});
 
-  if (kindleNameRegexMatch) {
-    var bookImageElt = $('#ebooks-img-wrapper');
-    showGoodreadsRating(kindleNameRegexMatch[1], productID, bookImageElt);
+  if (isKindlePage) {
+    var bookName = $('#ebooksProductTitle').text().replace('/\s+/g', '');
+    var bookImageElt = $('#ebooks-img-wrapper, #mainImageContainer');
+    showGoodreadsRating(bookName, productID, bookImageElt);
   }
 
-  tweakViewingOfAlreadyPurchasedItems(productID, kindleNameRegexMatch);
+  tweakViewingOfAlreadyPurchasedItems(productID, isKindlePage);
 
   highlightIfProductInWishList(productID);
 
@@ -39,10 +40,10 @@ $(function() {
     });
   }
 
-  function tweakViewingOfAlreadyPurchasedItems(productID, kindleNameRegexMatch) {
+  function tweakViewingOfAlreadyPurchasedItems(productID, isKindlePage) {
     var orderUpdateSection = $('#instantOrderUpdate_feature_div, .iou_div');
     if (orderUpdateSection.length > 0) {
-      if (kindleNameRegexMatch) {
+      if (isKindlePage) {
         $('#kicsBuyBoxForm').hide();
         $('form[name="addToWishlist"]').hide();
       }
@@ -50,7 +51,8 @@ $(function() {
   }
 
   function isKindleProductPage() {
-    return $('#title').text().replace(/\n/g, "").trim().replace(/\s{2,}/g, " ").match(/^(.+)Kindle Edition$/);
+    var productFormatElt = $("#formats .swatchElement.selected, .a-active.mediaTab_heading")
+    return productFormatElt.text().match(/\s*(Kindle|eTextbook)/);
   }
 
   function showGoodreadsRating(bookName, productID, bookImageElt) {
@@ -71,7 +73,7 @@ $(function() {
           'font-size': '20px',
           'font-weight': 'bold',
           'z-index': '999',
-          'box-shadow': 'black -1px 2px 12px 0px'
+          'box-shadow': 'black -1px 2px 12px 0px' 
         })
         .prependTo(bookImageElt.find('img').parent());
 
