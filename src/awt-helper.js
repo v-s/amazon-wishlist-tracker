@@ -376,8 +376,6 @@ function notifyAboutItemsWithUpdates(allItems, itemsWithUpdates) {
 
     updateBadgeBGColor('#009900');
     badgeText = String(numItemsToBeNotified + numPromisingUpdates);
-  } else {
-    notify('AWT Run Complete!', Object.keys(allItems).length + ' items analyzed.', null, null, 3);
   }
 
   updateBadgeText(badgeText);

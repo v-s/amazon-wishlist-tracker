@@ -12,7 +12,7 @@ $(function() {
 
   if (isKindlePage) {
     var bookName = $('#ebooksProductTitle').text().replace('/\s+/g', '');
-    var bookImageElt = $('#ebooks-img-wrapper, #mainImageContainer');
+    var bookImageElt = $('img.litb-on-click').parent();
     showGoodreadsRating(bookName, productID, bookImageElt);
   }
 
@@ -57,15 +57,13 @@ $(function() {
 
   function showGoodreadsRating(bookName, productID, bookImageElt) {
     if (productID && bookName) {
-      bookImageElt.addClass('awtRatingContainer awtGoodreadified');
       $('<span/>', {
         id: 'awtGoodreadsRating_' + productID,
-        text: '...'
+        text: '...',
+        class: 'awtRatingContainer'
       })
         .css({
           'position': 'absolute',
-          'right': '-8%',
-          'top' : '-1%',
           'background': 'gray',
           'color': '#fff',
           'border-radius': '100%',
@@ -73,9 +71,9 @@ $(function() {
           'font-size': '20px',
           'font-weight': 'bold',
           'z-index': '999',
-          'box-shadow': 'black -1px 2px 12px 0px' 
+          'box-shadow': 'black -1px 2px 12px 0px'
         })
-        .prependTo(bookImageElt.find('img').parent());
+        .insertBefore(bookImageElt);
 
       chrome.runtime.sendMessage({
         operation: 'fetchGoodreadsRating',
@@ -91,7 +89,7 @@ $(function() {
     var isUsingNonKindleProductID = request.nonKindleProductID;
     var goodreadsRatingElt = $('span#awtGoodreadsRating_' + request.productID);
     var ratingContainerElt = goodreadsRatingElt.closest('.awtRatingContainer');
-    var isSingleItemPage = ratingContainerElt.attr("id") === 'ebooks-img-wrapper';
+    var isMultipleItemsPage = $('span[id^=awtGoodreadsRating_]').length > 1;
 
     if (ratingDetails.failed || (ratingDetails.unavailable && isUsingNonKindleProductID)) {
       goodreadsUrl = 'https://www.goodreads.com/search?query=' + request.bookName;
@@ -111,13 +109,14 @@ $(function() {
       avgRating = ratingDetails.averageRating;
       if (avgRating < 3.9) {
         ratingBadgeColor = 'red';
-        ratingContainerElt.css('opacity', '0.15')
+        var ratingContainerParentElt = ratingContainerElt.parent();
+        ratingContainerParentElt.css('opacity', '0.15')
           .hover(
             function() {
-              ratingContainerElt.css('opacity', '0.5')
+              ratingContainerParentElt.css('opacity', '0.5')
             },
             function() {
-              ratingContainerElt.css('opacity', '0.15')
+              ratingContainerParentElt.css('opacity', '0.15')
             }
           );
       } else {
@@ -134,10 +133,11 @@ $(function() {
     goodreadsRatingElt
       .css('background-color', ratingBadgeColor)
       .html(goodreadsRatingEltHtml);
-    if (!isSingleItemPage) {
+    if (isMultipleItemsPage) {
       goodreadsRatingElt.css({
-        'right': '8%',
-        'font-size': '16px'
+        'font-size': '16px',
+        'top': '2%',
+        'left': '7%'
       });
     }
 
@@ -147,7 +147,8 @@ $(function() {
         return $(container1).data('goodreadsRating') - $(container2).data('goodreadsRating');
       }).each(function() {
         var jqThis = $(this);
-        jqThis.parent().prepend(jqThis);
+        var paintedElt = jqThis.closest('.awtRatingPainted');
+        paintedElt.prependTo(paintedElt.parent());
       });
     }
   }
@@ -199,10 +200,12 @@ $(function() {
   }
 
   function _paintGoodreadsRatings() {
-    $('#resultsCol .s-result-item:not(.awtGoodreadified)').each(function() {
-      var bookImageElt = $(this);
-      var bookName = bookImageElt.find('.s-access-title').text()
-      var productID = bookImageElt.attr('data-asin');
+    $('#resultsCol .s-result-item:not(.awtRatingPainted)').each(function() {
+      var containerElt = $(this);
+      containerElt.addClass('awtRatingPainted');
+      var bookImageElt = containerElt.find('.s-item-container');
+      var bookName = containerElt.find('.s-access-title').text()
+      var productID = containerElt.attr('data-asin');
       showGoodreadsRating(bookName, productID, bookImageElt);
     });
   }
