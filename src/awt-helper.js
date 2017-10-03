@@ -8,6 +8,7 @@ var WISHLISTS_HOME_URL = BASE_URL + '/gp/registry/wishlist';
 var ANALYZE_WISHLIST_ALARM_NAME='fetch-analyze-wishlists';
 var CHROME_XTN_URL_PREFIX = 'chrome-extension://' + chrome.runtime.id;
 var WISHLIST_PAGINATION_SIZE = 25;
+var PRICE_ABSENT_ITEMS_THRESHOLD = 25;
 var PRICE_BUY_THRESHOLD = 2.1;
 var PRICE_BUY_PROMISING_THRESHOLD = 4.51;
 var PRICE_DROP_TRIVIALITY_THRESHOLD = 10;
@@ -19,6 +20,8 @@ var STORAGE_USE_PERCENT_CRITICAL_THRESHOLD = 90;
 var STORAGE_USE_PERCENT_WARN_THRESHOLD = 75;
 
 var _wishLists;
+var _errorNotified = false;
+var _priceAbsentItems = [];
 
 chrome.runtime.onInstalled.addListener(function(details) {
   updateBadgeText('', DEFAULT_BADGE_BG_COLOR);
@@ -186,7 +189,7 @@ function analyzeWishListPage(pageURL, processedWishListsTrackingInfo, savedItems
       var jqThis = $(this);
       var itemLink = jqThis.find('a[id^=itemName_' + itemWishListID + ']')[0];
       if (!itemLink) {
-        notifyError(null, 'Unable to find Item Link for \'' + itemWishListID + '\'!', jqThis.text(), true);
+        notifyError('LINK', 'Unable to find Item Link for \'' + itemWishListID + '\'!', jqThis.text(), true);
         return;
       }
 
@@ -202,8 +205,9 @@ function analyzeWishListPage(pageURL, processedWishListsTrackingInfo, savedItems
       };
 
       var savedItem = $.extend({price : 999999}, savedItems[itemASIN]);
-      var itemPrice = jqThis.find('div.price-section > span.a-color-price').text().trim();
+      var itemPrice = jqThis.find('div.price-section span.a-offscreen').text().trim();
       if (!itemPrice) {
+        _priceAbsentItems.push(item);
         addItemToAllItems(allItems, item);
         return;
       }
@@ -260,7 +264,7 @@ function analyzeWishListPage(pageURL, processedWishListsTrackingInfo, savedItems
     }
   })
   .fail(function() {
-    notifyError(null, 'Unable to fetch page of WishList \'' + wishList.title +
+    notifyError('PAGE', 'Unable to fetch page of WishList \'' + wishList.title +
         '\' @ \'' + pageURL + '\' : ' + chrome.runtime.lastError.message);
   });
 }
@@ -274,6 +278,15 @@ function addItemToAllItems(allItems, item) {
 }
 
 function windUp(allItems, itemsWithUpdates) {
+  var priceAbsentItemsCountPercent =
+      Math.round(_priceAbsentItems.length / Object.keys(allItems).length * 100);
+      console.log(priceAbsentItemsCountPercent);
+  if (priceAbsentItemsCountPercent > PRICE_ABSENT_ITEMS_THRESHOLD) {
+    console.log("YESX!");
+      notifyError('0PRC!', 'No price info found for ' +
+          priceAbsentItemsCountPercent + '% of items!');
+  }
+  console.log('Items with no price: ' + JSON.stringify(_priceAbsentItems));
   console.log('Items with updates: ' + JSON.stringify(itemsWithUpdates));
   try {
     notifyAboutItemsWithUpdates(allItems, itemsWithUpdates);
@@ -309,8 +322,9 @@ function windUp(allItems, itemsWithUpdates) {
               var now = new Date();
               var wishListsInfo = Object.keys(_wishLists).length + ' Wish Lists.';
               var itemsInfo = Object.keys(allItems).length + ' items.';
+              var priceAbsentItemsInfo = _priceAbsentItems.length + ' items with no price!';
               chrome.browserAction.setTitle({
-                'title' : 'Last Checked at ' + now.toLocaleTimeString() + ', on ' + now.toLocaleDateString() + '\n' + wishListsInfo + '\n' + itemsInfo + '\n' + usageInfo
+                'title' : 'Last Checked at ' + now.toLocaleTimeString() + ', on ' + now.toLocaleDateString() + '\n' + wishListsInfo + '\n' + itemsInfo + '\n' + priceAbsentItemsInfo + '\n' + usageInfo
               });
             });
           }
@@ -389,6 +403,7 @@ function notifyError(badgeText, errorText, skipSendMail) {
   console.error(errorText);
   if (badgeText) {
     updateBadgeText(badgeText, DEFAULT_BADGE_BG_COLOR);
+    _errorNotified = true;
   }
   notify('Uh Oh!', errorText, ERROR_ICON)
 
@@ -430,14 +445,18 @@ function unfurlChromeXtnfiedURL(chromeXtnfiedURL) {
 }
 
 function updateBadgeBGColor(color) {
-  chrome.browserAction.setBadgeBackgroundColor({'color' : color});
+  if (!_errorNotified) {
+    chrome.browserAction.setBadgeBackgroundColor({'color' : color});
+  }
 }
 
 function updateBadgeText(text, bgColor) {
-  if (bgColor) {
-    updateBadgeBGColor(bgColor);
+  if (!_errorNotified) {
+    if (bgColor) {
+      updateBadgeBGColor(bgColor);
+    }
+    chrome.browserAction.setBadgeText({'text' : text});
   }
-  chrome.browserAction.setBadgeText({'text' : text});
 }
 
 function fetchGoodreadsRating(request, requesterID) {
