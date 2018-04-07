@@ -187,9 +187,13 @@ function analyzeWishListPage(pageURL, processedWishListsTrackingInfo, savedItems
     jqResponse.find('div[id^=item_]').each(function() {
       var itemWishListID = this.id.split('_')[1];
       var jqThis = $(this);
+      if (jqThis.find(".wl-info-buy-with-one-click-image,.wl-info-aa_add_to_cart,.wl-info-aa_buying_options_button").length == 0) {
+        // Unavailable and doesn't have any details. Skip.'
+        return;
+      }
       var itemLink = jqThis.find('a[id^=itemName_' + itemWishListID + ']')[0];
       if (!itemLink) {
-        notifyError('LINK', 'Unable to find Item Link for \'' + itemWishListID + '\'!', jqThis.text(), true);
+        notifyError('LINK', 'Unable to find Item Link for \'' + itemWishListID + '\' in Wishlist \'' + wishListName + '\'!', jqThis.text(), true);
         return;
       }
 
