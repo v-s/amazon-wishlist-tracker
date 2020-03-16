@@ -464,14 +464,14 @@ function updateBadgeText(text, bgColor) {
 }
 
 function fetchGoodreadsRating(request, requesterID) {
-  var nonKindleProductID = request.nonKindleProductID;
+  var isbn13Code = request.isbn13Code;
   var response = $.extend({}, request, {'operation': 'displayGoodreadsRating'});
 
   $.ajax({
     url: 'https://www.goodreads.com/search.xml',
     data: {
       key: 'dqVlK3OyDT5HWC0j5HOVtA',
-      q: nonKindleProductID ? nonKindleProductID : request.productID
+      q: isbn13Code ? isbn13Code : request.productID
     },
     dataType: 'xml'
   })
