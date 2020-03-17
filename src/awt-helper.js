@@ -20,8 +20,8 @@ var STORAGE_USE_PERCENT_CRITICAL_THRESHOLD = 90;
 var STORAGE_USE_PERCENT_WARN_THRESHOLD = 75;
 
 var _wishLists;
-var _errorNotified = false;
-var _priceAbsentItems = [];
+var _errorNotified;
+var _priceAbsentItems;
 
 chrome.runtime.onInstalled.addListener(function(details) {
   updateBadgeText('', DEFAULT_BADGE_BG_COLOR);
@@ -89,6 +89,10 @@ function manageKeepa(enableExtension) {
 }
 
 function fetchAndAnalyzeWishLists() {
+  _wishLists = [];
+  _errorNotified = false;
+  _priceAbsentItems = [];
+
   updateBadgeText('FTCH', '#ff7F50');
 
   $.get(WISHLISTS_HOME_URL)
@@ -284,9 +288,7 @@ function addItemToAllItems(allItems, item) {
 function windUp(allItems, itemsWithUpdates) {
   var priceAbsentItemsCountPercent =
       Math.round(_priceAbsentItems.length / Object.keys(allItems).length * 100);
-      console.log(priceAbsentItemsCountPercent);
   if (priceAbsentItemsCountPercent > PRICE_ABSENT_ITEMS_THRESHOLD) {
-    console.log("YESX!");
       notifyError('0PRC!', 'No price info found for ' +
           priceAbsentItemsCountPercent + '% of items!');
   }
