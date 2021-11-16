@@ -101,7 +101,7 @@ function fetchAndAnalyzeWishLists() {
     var wishLists = {};
 
     jqResponse.find('a[id^="wl-list-link"]').each(function() {
-      var linkText = $(this).find('[id^="wl-list-title"]').text().trim()
+      var linkText = $(this).find('[id^="wl-list-entry-title"]').text().trim()
       if (!linkText.startsWith('*')) {
         wishLists[linkText] = {
           title : linkText,
@@ -178,16 +178,15 @@ function analyzeWishLists(wishLists) {
     }
 
     $(wishLists).each(function(index, wishList) {
-      analyzeWishListPage(wishList.href, processedWishListsTrackingInfo, savedItems, allItems, itemsWithUpdates);
+      analyzeWishListPage(wishList.title, wishList.href, processedWishListsTrackingInfo, savedItems, allItems, itemsWithUpdates);
     });
   });
 }
 
-function analyzeWishListPage(pageURL, processedWishListsTrackingInfo, savedItems, allItems, itemsWithUpdates) {
+function analyzeWishListPage(wishListName, pageURL, processedWishListsTrackingInfo, savedItems, allItems, itemsWithUpdates) {
   $.get(pageURL)
   .done(function(response) {
     var jqResponse = $(response);
-    var wishListName = jqResponse.find('#profile-list-name').html()
     jqResponse.find('div[id^=item_]').each(function() {
       var itemWishListID = this.id.split('_')[1];
       var jqThis = $(this);
@@ -260,7 +259,7 @@ function analyzeWishListPage(pageURL, processedWishListsTrackingInfo, savedItems
     if(jqResponse.find('input[name=lastEvaluatedKey]').val().trim()) {
       console.log('Processing next page of ' + wishListTitleLogText);
       var nextPageURL = unfurlChromeXtnfiedURL(jqResponse.find('input[name=showMoreUrl]').val());
-      analyzeWishListPage(nextPageURL, processedWishListsTrackingInfo, savedItems, allItems, itemsWithUpdates);
+      analyzeWishListPage(wishListName, nextPageURL, processedWishListsTrackingInfo, savedItems, allItems, itemsWithUpdates);
     } else {
       console.log('Finished processing ' + wishListTitleLogText);
       processedWishListsTrackingInfo['numWishListsToProcess'] = processedWishListsTrackingInfo['numWishListsToProcess'] - 1;
