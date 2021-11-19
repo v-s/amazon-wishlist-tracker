@@ -101,7 +101,7 @@ function fetchAndAnalyzeWishLists() {
     var wishLists = {};
 
     jqResponse.find('a[id^="wl-list-link"]').each(function() {
-      var linkText = $(this).find('[id^="wl-list-entry-title"]').text().trim()
+      var linkText = $(this).find('[id^="wl-list-title"]').text().trim()
       if (!linkText.startsWith('*')) {
         wishLists[linkText] = {
           title : linkText,
