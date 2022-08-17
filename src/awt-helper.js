@@ -25,11 +25,6 @@ var _wishLists;
 var _errorNotified;
 var _priceAbsentItems;
 
-gMail({
-  subject : "Test Subject",
-  message : "Test Body"
-});
-
 chrome.runtime.onInstalled.addListener(function(details) {
   updateBadgeText('', DEFAULT_BADGE_BG_COLOR);
 
