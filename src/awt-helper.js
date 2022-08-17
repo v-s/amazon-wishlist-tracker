@@ -18,10 +18,17 @@ var HIGH_PRICED_ITEM_TRIGGER = 70;
 var STORAGE_KEY_WISHLISTS = '__wishLists';
 var STORAGE_USE_PERCENT_CRITICAL_THRESHOLD = 90;
 var STORAGE_USE_PERCENT_WARN_THRESHOLD = 75;
+var GMAIL_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_BL00QIlqIJm5SuK_MgXazQDeQfwzxwYrU9aLTykzkD6BGr4/exec';
+var MAIL_QUOTA_WARNING_THRESHOLD = 10;
 
 var _wishLists;
 var _errorNotified;
 var _priceAbsentItems;
+
+gMail({
+  subject : "Test Subject",
+  message : "Test Body"
+});
 
 chrome.runtime.onInstalled.addListener(function(details) {
   updateBadgeText('', DEFAULT_BADGE_BG_COLOR);
@@ -40,9 +47,7 @@ chrome.alarms.onAlarm.addListener(function(alarm) {
 
 chrome.runtime.onMessage.addListener(function(request, sender) {
   var requestedOperation = request.operation
-  if (requestedOperation === 'manageKeepa') {
-    manageKeepa(request.enableExtension);
-  } else if (requestedOperation === 'checkIfInWishList') {
+  if (requestedOperation === 'checkIfInWishList') {
     var productID = request.productID;
     chrome.storage.sync.get([productID, STORAGE_KEY_WISHLISTS], function(data) {
       if (data && data[productID]) {
@@ -77,16 +82,6 @@ chrome.runtime.onMessage.addListener(function(request, sender) {
     fetchAndAnalyzeWishLists();
   }
 });
-
-function manageKeepa(enableExtension) {
-  chrome.management.getAll(function(extensionInfos) {
-    $(extensionInfos).each(function() {
-      if (this.name.match(/keepa/i)) {
-        chrome.management.setEnabled(this.id, enableExtension);
-      }
-    });
-  });
-}
 
 function fetchAndAnalyzeWishLists() {
   _wishLists = [];
@@ -410,12 +405,12 @@ function notifyError(badgeText, errorText, skipSendMail) {
     updateBadgeText(badgeText, DEFAULT_BADGE_BG_COLOR);
     _errorNotified = true;
   }
-  notify('Uh Oh!', errorText, ERROR_ICON)
+  notify('Uh Oh!', errorText, ERROR_ICON);
 
   if (!skipSendMail) {
     gMail({
-      subject: 'ERROR: ' + errorText
-    })
+      subject: `ERROR: ${errorText}`
+    });
   }
 }
 
@@ -433,15 +428,25 @@ function notify(messageTitle, messageText, iconUrl, navigationUrl, timeout) {
 }
 
 function gMail(opts) {
-  var gMailUrl = 'https://script.google.com/macros/s/AKfycby_BL00QIlqIJm5SuK_MgXazQDeQfwzxwYrU9aLTykzkD6BGr4/exec';
   var params = $.extend({}, opts, {
     service : 'mailMe',
     subject : '[AWT] ' + opts.subject
   });
 
-  $.get(gMailUrl, params)
+  $.post(GMAIL_SCRIPT_URL, params)
+  .done(function(response) {
+    var responseDetails = response.details;
+    if (response["success"]) {
+      notify('Mail Status',JSON.stringify(response));
+      if (responseDetails['remainingQuota'] < MAIL_QUOTA_WARNING_THRESHOLD) {
+        notifyError('MQTA', `Mail Quota Almost Over!\nRemaining Quota: ${responseDetails.remainingQuota}`, true);
+      }
+    } else {
+      notifyError('MRES', responseDetails, true);
+    }
+  })
   .fail(function(jqXhr, status) {
-    notify('Uh Oh!', 'Unable to send GMail!', ERROR_ICON);
+    notifyError('MSND', `Unable to send GMail! Got status: ${jqXhr.status} and response: ${jqXhr.responseText}.`, true);
   });
 }
 
