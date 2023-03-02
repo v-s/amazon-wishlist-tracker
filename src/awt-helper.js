@@ -2,7 +2,7 @@
 var DEFAULT_PRICE_CHECK_FREQ_MINUTES = 30;
 var DEFAULT_BADGE_BG_COLOR = '#ff0000';
 var ERROR_ICON = 'error.png';
-var BASE_URL = 'http://smile.amazon.com';
+var BASE_URL = 'http://www.amazon.com';
 var DAILY_DEALS_URL = BASE_URL + '/gp/feature.html?docId=1000677541';
 var WISHLISTS_HOME_URL = BASE_URL + '/gp/registry/wishlist';
 var ANALYZE_WISHLIST_ALARM_NAME='fetch-analyze-wishlists';

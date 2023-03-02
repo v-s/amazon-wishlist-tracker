@@ -2,8 +2,6 @@ $(function() {
 
   registerListeners();
 
-  document.title = document.title.replace(/^AmazonSmile: /, '');
-
   const productID = $('[name^="ASIN"]').val();
   const isbn13Code = getISBN13CodeIfPresent();
   const isKindleBook = isKindleBookPage();
